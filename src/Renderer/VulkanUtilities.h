@@ -1,0 +1,354 @@
+#pragma once
+
+#include <vector>
+#include <iostream>
+
+#include <GLFW/glfw3.h>
+
+#include <vulkan/vulkan.h>
+
+#include "VulkanContext.h"
+#include "Swapchain.h"
+
+#include <set>
+
+namespace Fluxon {
+	namespace Vulkan {
+		namespace Utils {
+
+			static std::vector<const char*> GetRequiredExtensions(bool enable_validation_layers) {
+				uint32_t glfw_extension_count = 0;
+				const char** pp_glfw_extensions;
+				pp_glfw_extensions = glfwGetRequiredInstanceExtensions(&glfw_extension_count);
+
+				std::vector<const char*> extensions(pp_glfw_extensions, pp_glfw_extensions + glfw_extension_count);
+
+				if (enable_validation_layers)
+					extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+
+				std::cout << "\n\nrequired extension count: " << extensions.size() << std::endl;
+				for (const auto& extension : extensions)
+					std::cout << '\t' << extension << '\n';
+
+				return extensions;
+			}
+
+			static void PopulateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& create_info, PFN_vkDebugUtilsMessengerCallbackEXT debug_callback) {
+				create_info.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
+				create_info.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT |
+					VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT |
+					VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
+				create_info.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT |
+					VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
+					VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
+				//function call back 
+				create_info.pfnUserCallback = debug_callback;
+				create_info.pUserData = nullptr;
+			}
+
+			static bool CheckDeviceExtensionSupport(VkPhysicalDevice device, std::vector<const char*> device_extension) {
+				uint32_t extension_count;
+				vkEnumerateDeviceExtensionProperties(device, nullptr, &extension_count, nullptr);
+				std::vector<VkExtensionProperties> available_extensions(extension_count);
+				vkEnumerateDeviceExtensionProperties(device, nullptr, &extension_count, available_extensions.data());
+
+				std::cout << "\n\n\033[1;32m device available extension count: \033[0m" << extension_count << std::endl;
+				for (const auto& available_extension : available_extensions)
+					std::cout << '\t' << available_extension.extensionName << '\n';
+
+				std::set<std::string> required_extensions(device_extension.begin(), device_extension.end());
+				for (const auto& extension : available_extensions)
+					required_extensions.erase(extension.extensionName);
+
+				return required_extensions.empty();
+			}
+
+			static bool CheckValidationLayerSupport(std::vector<const char*> validation_layers) {
+				uint32_t layer_count;
+				vkEnumerateInstanceLayerProperties(&layer_count, nullptr);
+
+				std::vector<VkLayerProperties> avaliable_layers(layer_count);
+				vkEnumerateInstanceLayerProperties(&layer_count, &avaliable_layers[0]);
+
+				std::cout << "\n\navaliable layer count: " << layer_count << std::endl;
+				std::cout << "available layers: \n";
+				for (const auto& layer : avaliable_layers)
+					std::cout << '\t' << layer.layerName << '\n';
+
+
+				//check our required layer from available layer
+				for (const auto& layer_name : validation_layers)
+				{
+					bool layer_found = false;
+					for (const auto& avaliable_layer_prop : avaliable_layers)
+					{
+						if (strcmp(layer_name, avaliable_layer_prop.layerName) == 0)
+						{
+							layer_found = true;
+							break;
+						}
+					}
+
+					if (!layer_found)
+						return false;
+				}
+
+				return true;
+			}
+
+
+			static SwapchainSupportDetails QuerySwapchainSupport(VkPhysicalDevice device, VkSurfaceKHR surface)
+			{
+				SwapchainSupportDetails details;
+
+				vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device, surface, &details.capabilities);
+
+				uint32_t format_count;
+				vkGetPhysicalDeviceSurfaceFormatsKHR(device, surface, &format_count, nullptr);
+				if (format_count != 0)
+				{
+					details.formats.resize(format_count);
+					vkGetPhysicalDeviceSurfaceFormatsKHR(device, surface, &format_count, details.formats.data());
+				}
+
+				uint32_t present_mode_count;
+				vkGetPhysicalDeviceSurfacePresentModesKHR(device, surface, &present_mode_count, nullptr);
+				if (present_mode_count != 0)
+				{
+					details.presentModes.resize(present_mode_count);
+					vkGetPhysicalDeviceSurfacePresentModesKHR(device, surface, &present_mode_count, details.presentModes.data());
+				}
+
+				return details;
+			}
+
+
+			static QueueFamilyIndices FindQueueFamilies(VkPhysicalDevice device, VkSurfaceKHR surface) {
+				QueueFamilyIndices indices{};
+
+				uint32_t queue_family_count = 0;
+				vkGetPhysicalDeviceQueueFamilyProperties(device, &queue_family_count, nullptr);
+
+				std::vector<VkQueueFamilyProperties> queue_families(queue_family_count);
+				vkGetPhysicalDeviceQueueFamilyProperties(device, &queue_family_count, queue_families.data());
+
+				int i = 0;
+				for (const auto& queue_family : queue_families)
+				{
+					if (queue_family.queueFlags & VK_QUEUE_GRAPHICS_BIT)
+						indices.graphicsFamily = i;
+
+					//look for a queue family which has the capablity of presenting 
+					//to our window surface
+					VkBool32 present_support = false;
+					vkGetPhysicalDeviceSurfaceSupportKHR(device, i, surface, &present_support);
+					if (present_support)
+						indices.presentFamily = i;
+
+					if (indices.IsRequiredQueuesComplete())
+						break;
+
+					i++;
+				}
+
+				return indices;
+			}
+			//TODO (Conqster): Proper Utilty function !!!.
+			static QueueFamilyIndices FindDeviceQueueFamilies(const VulkanContext& vk_ctx) {
+				return FindQueueFamilies(vk_ctx.physicalDevice, vk_ctx.surface);
+			}
+
+			static bool HasStencilComponent(VkFormat format) {
+				return format == VK_FORMAT_D32_SFLOAT_S8_UINT || format == VK_FORMAT_D24_UNORM_S8_UINT;
+			}
+
+			static VkFormat FindSupportedFormat(const VkPhysicalDevice& physical_device, const std::vector<VkFormat>& candidates, VkImageTiling req_img_tiling, VkFormatFeatureFlags required_features) {
+
+				for (auto format : candidates)
+				{
+					VkFormatProperties props;
+					vkGetPhysicalDeviceFormatProperties(physical_device, format, &props);
+
+					if (req_img_tiling == VK_IMAGE_TILING_LINEAR &&
+						(props.linearTilingFeatures & required_features) == required_features)
+						return format;
+					else if (req_img_tiling == VK_IMAGE_TILING_OPTIMAL &&
+						(props.optimalTilingFeatures & required_features) == required_features)
+						return format;
+				}
+
+				throw std::runtime_error("Failed to find supported format!!!!!!");
+			}
+
+			//utility
+			static VkFormat  FindDepthFormat(const VkPhysicalDevice& physical_device) {
+				return FindSupportedFormat(
+					physical_device,
+					{ VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT }, //<<-- CANDIDATES FORMAT FOR DEPTH TESTING
+					VK_IMAGE_TILING_OPTIMAL,
+					VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT
+				);
+			}
+
+
+			static uint32_t FindMemoryType(VkPhysicalDevice physical_device, uint32_t type_filter, VkMemoryPropertyFlags properties) {
+
+				VkPhysicalDeviceMemoryProperties mem_properties;
+				vkGetPhysicalDeviceMemoryProperties(physical_device, &mem_properties);
+
+				for (uint32_t i = 0; i < mem_properties.memoryTypeCount; i++)
+				{
+					if ((type_filter & (1 << i)) &&
+						(mem_properties.memoryTypes[i].propertyFlags & properties) == properties)
+						return i;
+				}
+
+
+				throw std::runtime_error("Failed to find suitable memeory type!!!");
+			}
+
+
+
+
+			static VkCommandBuffer BeginSingleTimeCommand(VkDevice device, VkCommandPool command_pool) {
+				VkCommandBufferAllocateInfo alloc_info{};
+				alloc_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+				alloc_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+				alloc_info.commandPool = command_pool;
+				alloc_info.commandBufferCount = 1;
+
+				VkCommandBuffer command_buffer;
+				vkAllocateCommandBuffers(device, &alloc_info, &command_buffer);
+
+				VkCommandBufferBeginInfo command_begin_info{};
+				command_begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+				command_begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+
+				vkBeginCommandBuffer(command_buffer, &command_begin_info);
+				return command_buffer;
+			}
+
+			static void EndSingleTimeCommand(const VulkanContext* vk_ctx, VkCommandPool command_pool, VkCommandBuffer command_buffer) {
+				vkEndCommandBuffer(command_buffer);
+
+				VkSubmitInfo submit_info{};
+				submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+				submit_info.commandBufferCount = 1;
+				submit_info.pCommandBuffers = &command_buffer;
+
+				vkQueueSubmit(vk_ctx->graphicsQueue, 1, &submit_info, VK_NULL_HANDLE);
+				vkQueueWaitIdle(vk_ctx->graphicsQueue);
+				vkFreeCommandBuffers(vk_ctx->device, command_pool, 1, &command_buffer);
+			}
+
+			static void TransitionImageLayout(const VulkanContext* vk_ctx, VkCommandPool command_pool,
+				VkImage image, VkFormat format, VkImageLayout old_layout, VkImageLayout new_layout, uint32_t layer_count = 1) {
+
+				VkCommandBuffer command_buffer = BeginSingleTimeCommand(vk_ctx->device, command_pool);
+
+				VkPipelineStageFlags source_stage;
+				VkPipelineStageFlags destination_stage;
+
+				VkImageMemoryBarrier memory_barrier{};
+				memory_barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+				memory_barrier.oldLayout = old_layout; //VK_IMAGE_LAYOUT_UNDEFINED is we do not care about the image existing content
+				memory_barrier.newLayout = new_layout;
+				memory_barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+				memory_barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+				memory_barrier.image = image;
+
+				//sub resources
+				if (new_layout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
+				{
+					memory_barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+					if (HasStencilComponent(format))
+						memory_barrier.subresourceRange.aspectMask |= VK_IMAGE_ASPECT_STENCIL_BIT;
+				}
+				else
+					memory_barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+				memory_barrier.subresourceRange.baseMipLevel = 0;
+				memory_barrier.subresourceRange.levelCount = 1;
+				memory_barrier.subresourceRange.baseArrayLayer = 0;
+				memory_barrier.subresourceRange.layerCount = layer_count; // 1;
+
+				//old layout undefinied/irrelevant 
+				//trying to writing to writing to transfer buffer
+				if (old_layout == VK_IMAGE_LAYOUT_UNDEFINED && new_layout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL)
+				{
+					memory_barrier.srcAccessMask = 0; //<-- Specifies the  type of access that must happen-before the barrier
+					memory_barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT; //<-- Specifies the  type of access that must wait until-after the barrier
+
+					source_stage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+					destination_stage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+				}
+				//if old layout used as transfer destination 
+				else if (old_layout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL && new_layout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
+				{
+					memory_barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+					memory_barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+
+					source_stage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+					destination_stage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+				}
+				else if (old_layout == VK_IMAGE_LAYOUT_UNDEFINED && new_layout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
+				{
+					memory_barrier.srcAccessMask = 0;
+					memory_barrier.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+
+					source_stage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+					destination_stage = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+				}
+				else
+					throw std::invalid_argument("Unsupported image layout transition!!!!!!!!!");
+
+				vkCmdPipelineBarrier(
+					command_buffer,
+					source_stage, destination_stage,
+					0,
+					0, nullptr,
+					0, nullptr,
+					1, &memory_barrier
+				);
+
+				EndSingleTimeCommand(vk_ctx, command_pool, command_buffer);
+			}
+
+
+			static std::string VK_BufferUsageFlagString(VkBufferUsageFlagBits usage) {
+
+				switch (usage)
+				{
+				case VK_BUFFER_USAGE_TRANSFER_SRC_BIT:
+					return "VK_BUFFER_USAGE_TRANSFER_SRC_BIT";
+					break;
+				case VK_BUFFER_USAGE_TRANSFER_DST_BIT:
+					return "VK_BUFFER_USAGE_TRANSFER_DST_BIT";
+				case VK_BUFFER_USAGE_VERTEX_BUFFER_BIT:
+					return "VK_BUFFER_USAGE_VERTEX_BUFFER_BIT";
+				case VK_BUFFER_USAGE_INDEX_BUFFER_BIT:
+					return "VK_BUFFER_USAGE_INDEX_BUFFER_BIT";
+				}
+
+				return "\033[1;31mUnknown Usage!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\033[0m";
+			}
+
+
+			static std::string VK_MemoryPropertyFlagString(VkMemoryPropertyFlagBits property) {
+
+				switch (property)
+				{
+				case VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT:
+					return "VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT ";
+					break;
+				case VK_MEMORY_PROPERTY_HOST_COHERENT_BIT:
+					return "VK_MEMORY_PROPERTY_HOST_COHERENT_BIT";
+				case VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT:
+					return "VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT";
+				}
+
+				return "\033[1;31mUnknown property!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\033[0m";
+			}
+
+		}// # Utils
+	} //#vulkan
+}//#Fluxon
