@@ -17,7 +17,7 @@ namespace Fluxon {
 
 			IRenderPass* renderPass = nullptr;
 
-			//pipeline layout requirement {descriptor set layout & push constant range} 
+			//pipelines layout requirement {descriptor set layout & push constant range} 
 			std::vector<VkDescriptorSetLayout> descriptorSetLayouts;
 			std::vector<VkPushConstantRange> pushConstantRanges;
 

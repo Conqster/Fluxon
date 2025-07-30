@@ -47,7 +47,7 @@ namespace Fluxon {
 			pipeline_layout_create_info.setLayoutCount = static_cast<uint32_t>(gfx_pipeline_spec.descriptorSetLayouts.size());
 			pipeline_layout_create_info.pSetLayouts = gfx_pipeline_spec.descriptorSetLayouts.data(); //<--- ubo decription layout sample MVP UBO 
 
-			//addind push constant to pipeline layout 
+			//addind push constant to pipelines layout 
 			//VkPushConstantRange push_constant_range{};
 			//push_constant_range.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
 			//push_constant_range.offset = 0; //<- i am presumiing that this is used if there is more than one push constant
@@ -57,7 +57,7 @@ namespace Fluxon {
 			pipeline_layout_create_info.pPushConstantRanges = gfx_pipeline_spec.pushConstantRanges.data();
 
 			if (vkCreatePipelineLayout(ctx->device, &pipeline_layout_create_info, nullptr, &mLayout) != VK_SUCCESS)
-				throw std::runtime_error("Failed to create pipeline layout!!!!");
+				throw std::runtime_error("Failed to create pipelines layout!!!!");
 #pragma endregion //#vk_PIPELINE_LAYOUT
 		}
 
@@ -65,7 +65,7 @@ namespace Fluxon {
 		{
 #pragma region vk_SHADER_STAGE_CREATION_INFO
 			std::vector<VkPipelineShaderStageCreateInfo> shader_stages;
-			//cache shader module oto keep alive for pipeline construction 
+			//cache shader module oto keep alive for pipelines construction 
 			std::vector<VkShaderModule> created_shader_modules;
 			if (!gfx_pipeline_spec.vertexShaderPath.empty())
 			{

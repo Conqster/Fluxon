@@ -372,7 +372,6 @@ namespace Fluxon {
 		}
 
 
-
 		void Renderer::CreateDummyDescriptionSetLayout(Vulkan::VulkanContext* vk_ctx, DescriptorSetSpecification& description_set_spec, uint32_t set)
 		{
 			description_set_spec.set = set;
@@ -659,7 +658,7 @@ namespace Fluxon {
 
 		void Renderer::DebugInputKeyUI()
 		{
-			Fluxon::EventSystem::Input input = Fluxon::EventSystem::Input::Instance();
+			Fluxon::InputSystem::Input input = Fluxon::InputSystem::Input();
 			if(ImGui::Begin("Debug Input System Events"))
 			{
 				static const char true_text[] = "True";
@@ -679,7 +678,7 @@ namespace Fluxon {
 				};
 
 
-				auto& SetImguiKeyTextStatePressedTypes = [&](const char* text, const int key_code)
+				auto& SetImguiKeyTextStatePressedTypes = [&](const char* text, const Fluxon::InputSystem::IKeyCode key_code)
 				{
 					bool held_state = input.GetKey(key_code);
 					bool pressed = input.GetKeyDown(key_code);
@@ -699,14 +698,14 @@ namespace Fluxon {
 					ImGui::TextColored((released) ? true_col : false_col, text_fmt);
 				};
 
-				SetImguiKeyTextStatePressedTypes("Key T", GLFW_KEY_T);
-				SetImguiKeyTextStatePressedTypes("Key Q", GLFW_KEY_Q);
-				SetImguiKeyTextStatePressedTypes("Key A", GLFW_KEY_A);
-				SetImguiKeyTextStatePressedTypes("Key Z", GLFW_KEY_Z);
-				SetImguiKeyTextStatePressedTypes("Key P", GLFW_KEY_P);
-				SetImguiKeyTextStatePressedTypes("Key J", GLFW_KEY_J);
-				SetImguiKeyTextStatePressedTypes("Left Mouse", GLFW_MOUSE_BUTTON_LEFT);
-				SetImguiKeyTextStatePressedTypes("Right Mouse", GLFW_MOUSE_BUTTON_RIGHT);
+				SetImguiKeyTextStatePressedTypes("Key T", Fluxon::InputSystem::IKeyCode::T);
+				SetImguiKeyTextStatePressedTypes("Key Q", Fluxon::InputSystem::IKeyCode::Q);
+				SetImguiKeyTextStatePressedTypes("Key A", Fluxon::InputSystem::IKeyCode::A);
+				SetImguiKeyTextStatePressedTypes("Key Z", Fluxon::InputSystem::IKeyCode::Z);
+				SetImguiKeyTextStatePressedTypes("Key P", Fluxon::InputSystem::IKeyCode::P);
+				SetImguiKeyTextStatePressedTypes("Key J", Fluxon::InputSystem::IKeyCode::J);
+				SetImguiKeyTextStatePressedTypes("Left Mouse", Fluxon::InputSystem::IKeyCode::MouseLeftButton);
+				SetImguiKeyTextStatePressedTypes("Right Mouse", Fluxon::InputSystem::IKeyCode::MouseRightButton);
 			}
 			ImGui::End();
 

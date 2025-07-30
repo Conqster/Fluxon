@@ -6,6 +6,13 @@
 #include "Renderer/GPUStrutures.h"
 #include "Renderer/Graphics2.h"
 
+#define USE_NEW_SCENE_RUNTIME 1
+
+#if USE_NEW_SCENE_RUNTIME
+#include "Core/SceneRuntime.h"
+#endif // USE_NEW_SCENE_RUNTIME
+
+
 //#include <chrono>
 //#include <thread>
 
@@ -34,7 +41,12 @@ private:
 	glm::vec3 mModelRotateAxis = glm::vec3(0.0f, 0.0f, 1.0f);
 	glm::mat4 mModelMatrix = glm::mat4(1.0f);
 
+#if USE_NEW_SCENE_RUNTIME
+	Fluxon::SceneRuntime mSceneRuntime;
+#else
 	Fluxon::Vulkan::Renderer mRenderer;
+#endif // USE_NEW_SCENE_RUNTIME
+
 	uint32_t mCurrentFrame = 0;
 
 	double mCurrFrameDT;
@@ -52,10 +64,16 @@ private:
 		Fluxon::Platform::InitialiseGLFWWindow(mWindow);
 		//mWindow = mTestWindow.glfwWindowHandle;
 		//glfwSetKeyCallback(mWindow, KeyboardInputCallback);
-		Fluxon::EventSystem::Input::Instance().CreateCallbacks(mWindow.glfwWindowHandle);
+		Fluxon::InputSystem::EventHandler::Instance().CreateCallbacks(mWindow.glfwWindowHandle);
 
+#if USE_NEW_SCENE_RUNTIME
+		mSceneRuntime.Init(mWindow, &mCamera);
+		InitSystems(mSceneRuntime.GetVulkanContext(), mSceneRuntime.GetFrames()[0].globalDescriptorPool, mSceneRuntime.GetScene().GetForwardRenderPass()->GetRenderPassHandle());
+#else
 		mRenderer.Init(mWindow, &mCamera);
-		InitSystems(mRenderer, mRenderer.GetFrames()[0].globalDescriptorPool, mRenderer.GetForwardRenderPass().GetRenderPassHandle());
+		InitSystems(mRenderer.GetVulkanContext(), mRenderer.GetFrames()[0].globalDescriptorPool, mRenderer.GetForwardRenderPass().GetRenderPassHandle());
+#endif // USE_NEW_SCENE_RUNTIME
+
 	}
 
 
@@ -74,7 +92,12 @@ private:
 
 			glfwPollEvents();
 
+#if USE_NEW_SCENE_RUNTIME
+			mSceneRuntime.Update(mCurrFrameDT, &mWindow, &mCamera);
+#else
 			mRenderer.DrawScene(&mCamera, mTranslateModelBy, mModelRotateAxis);
+#endif // USE_NEW_SCENE_RUNTIME
+
 
 			ImGuiIO ui_io = ImGui::GetIO();
 			//make window capture mouse 
@@ -94,18 +117,18 @@ private:
 			mTranslateModelBy = glm::vec3(0.0f);
 
 			//std::this_thread::sleep_for(std::chrono::milliseconds(100));
+			//Fluxon::InputSystem::Input().
+			auto input_sys_inst = Fluxon::InputSystem::Input();
 
-			auto input_sys_inst = Fluxon::EventSystem::Input::Instance();
 
-
-			if (input_sys_inst.GetKey(GLFW_KEY_UP))
+			if (input_sys_inst.GetKey(Fluxon::InputSystem::IKeyCode::UpArrow))
 				mTranslateModelBy.z += 2.5f * GetFrameTimeInSeconds();
-			if (input_sys_inst.GetKey(GLFW_KEY_DOWN))
+			if (input_sys_inst.GetKey(Fluxon::InputSystem::IKeyCode::DownArrow))
 				mTranslateModelBy.z -= 2.5f * GetFrameTimeInSeconds();
 
-			if (input_sys_inst.GetKey(GLFW_KEY_LEFT))
+			if (input_sys_inst.GetKey(Fluxon::InputSystem::IKeyCode::LeftArrow))
 				mTranslateModelBy.x -= 2.5f * GetFrameTimeInSeconds();
-			if (input_sys_inst.GetKey(GLFW_KEY_RIGHT))
+			if (input_sys_inst.GetKey(Fluxon::InputSystem::IKeyCode::RightArrow))
 				mTranslateModelBy.x += 2.5f * GetFrameTimeInSeconds();
 
 
@@ -115,9 +138,9 @@ private:
 
 
 			static float rot_increament = 90.0f;
-			if (input_sys_inst.GetKeyDown(GLFW_KEY_Z))
+			if (input_sys_inst.GetKeyDown(Fluxon::InputSystem::IKeyCode::Z))
 				rot_increament += 10.0f;
-			else if (input_sys_inst.GetKeyDown(GLFW_KEY_X))
+			else if (input_sys_inst.GetKeyDown(Fluxon::InputSystem::IKeyCode::X))
 				rot_increament -= 10.0f;
 			rot_increament = glm::clamp(rot_increament, 0.0f, 720.0f);
 
@@ -132,7 +155,7 @@ private:
 				//axis_rotation = axis_rotation - 360;
 
 			static int axis = 0;
-			if (input_sys_inst.GetKeyDown(GLFW_KEY_SPACE))
+			if (input_sys_inst.GetKeyDown(Fluxon::InputSystem::IKeyCode::Space))
 			{
 				axis = (axis + 1) % 3;
 				if (axis == 0)
@@ -158,14 +181,18 @@ private:
 			}
 
 			Fluxon::Platform::FlushWindow(&mWindow);
-			input_sys_inst.FlushFrameInputs();
+			Fluxon::InputSystem::EventHandler::Instance().FlushFrameInputs();
 		}
 	}
 	void CleanUp() {
 
 		//vkDeviceWaitIdle(mDevice.device);
-
+#if USE_NEW_SCENE_RUNTIME
+		mSceneRuntime.Cleanup();
+#else
 		mRenderer.Cleanup();
+#endif // USE_NEW_SCENE_RUNTIME
+
 
 		Fluxon::Platform::DestroyWindow(&mWindow);
 	}
@@ -178,13 +205,12 @@ private:
 
 
 	uint32_t mSubpassPipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-	void InitSystems(Fluxon::Vulkan::Renderer& renderer, VkDescriptorPool desc_pool, VkRenderPass render_pass) {
+	void InitSystems(Fluxon::Vulkan::VulkanContext& d, VkDescriptorPool desc_pool, VkRenderPass render_pass) {
 
 		//mCamera.SetLookTarget(glm::vec3(0.0f, 0.0f, 0.5f));
 
 		//TODO (Conqster): Now that device is a structure of vulkann info, i can pass device to imgui
 		//auto& d = renderer.GetDeprecatedDevice();
-		auto& d = renderer.GetVulkanContext();
 		Vulkan_Engine_Prop vk_imgui_props{};
 		vk_imgui_props.vkInstance = d.instance;
 		vk_imgui_props.physicalDevice = d.physicalDevice;
@@ -202,7 +228,7 @@ private:
 		//internal operations before we can acquire another imgae to render
 		vk_imgui_props.minImageCount = swap_chain_support.capabilities.minImageCount + 1;
 		//vk_imgui_props.imageCount = mSwapchainImages.size();
-		vk_imgui_props.imageCount = renderer.GetVulkanContext().swapchain->GetImages().size();
+		vk_imgui_props.imageCount = d.swapchain->GetImages().size();
 		vk_imgui_props.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
 		vk_imgui_props.subpass = mSubpassPipelineBindPoint;
 		vk_imgui_props.renderPass = render_pass;
@@ -210,55 +236,47 @@ private:
 		mImGuiUISystem.Init(mWindow.glfwWindowHandle, vk_imgui_props);
 
 
-
+#if USE_NEW_SCENE_RUNTIME
+#else
 		mRenderer.SetIMGUI(mImGuiUISystem);
+#endif // USE_NEW_SCENE_RUNTIME
+
 	}
 
 
 
 
 
-	void TranslateCamera(Fluxon::EventSystem::Input& input_sys_inst, Fluxon::Camera& cam, float delta_sec, glm::vec3 translate_by = glm::vec3(1.0f)) {
+	void TranslateCamera(Fluxon::InputSystem::Input& input_sys_inst, Fluxon::Camera& cam, float delta_sec, glm::vec3 translate_by = glm::vec3(1.0f)) {
 
+		
 		if (Fluxon::Platform::IsCursorLocked(&mWindow))
 			return;
 
-		//hide cursor while in view 
-		if (input_sys_inst.GetKey(GLFW_MOUSE_BUTTON_RIGHT))
-			Fluxon::Platform::LockCursor(&mWindow);
-		//else
-			//Fluxon::Platform::UnlockCursor(&mWindow);
+	
 
-		if (input_sys_inst.GetKey(GLFW_MOUSE_BUTTON_RIGHT)) //Fluxon::Platform::ToggleCursor(&mWindow);
+		if (input_sys_inst.GetKey(Fluxon::InputSystem::IKeyCode::MouseRightButton)) //Fluxon::Platform::ToggleCursor(&mWindow);
 		{
+			Fluxon::Platform::LockCursor(&mWindow);
 
-			//if (mImGuiUISystem.UserIsHoveringWindow() && !Fluxon::Platform::IsCursorLocked(&mWindow))
-			//if (mImGuiUISystem.UserIsHoveringWindow() && !input_sys_inst.GetKeyDown(GLFW_MOUSE_BUTTON_RIGHT))
-			if (!input_sys_inst.GetKey(GLFW_MOUSE_BUTTON_RIGHT))
-				return;
-
-			//if (input_sys_inst.GetKeyDown(GLFW_MOUSE_BUTTON_LEFT))
-			//	Fluxon::Platform::ToggleCursor(&mWindow);
-
-			//if (Fluxon::Platform::IsCursorLocked(&mWindow))
-			cam.RotateByMouseMovement(input_sys_inst.GetMouseAxisFloatDt(0), input_sys_inst.GetMouseAxisFloatDt(1));
+			cam.RotateByMouseMovement(input_sys_inst.GetMouseAxisFloat(Fluxon::InputSystem::IAxis::Vertical), input_sys_inst.GetMouseAxisFloat(Fluxon::InputSystem::IAxis::Horizontal));
 
 			glm::vec3 displacement = glm::vec3(0.0f);
 
-			if (input_sys_inst.GetKey(GLFW_KEY_W))
+			if (input_sys_inst.GetKey(Fluxon::InputSystem::IKeyCode::W))
 				cam.Translate(cam.forward, delta_sec);
-			if (input_sys_inst.GetKey(GLFW_KEY_S))
+			if (input_sys_inst.GetKey(Fluxon::InputSystem::IKeyCode::S))
 				cam.Translate(-cam.forward, delta_sec);
 
-			if (input_sys_inst.GetKey(GLFW_KEY_A))
+			if (input_sys_inst.GetKey(Fluxon::InputSystem::IKeyCode::A))
 				cam.Translate(-cam.right, delta_sec);
-			if (input_sys_inst.GetKey(GLFW_KEY_D))
+			if (input_sys_inst.GetKey(Fluxon::InputSystem::IKeyCode::D))
 				cam.Translate(cam.right, delta_sec);
 
 
-			if (input_sys_inst.GetKey(GLFW_KEY_Q))
+			if (input_sys_inst.GetKey(Fluxon::InputSystem::IKeyCode::Q))
 				cam.Translate(cam.up, delta_sec);
-			if (input_sys_inst.GetKey(GLFW_KEY_E))
+			if (input_sys_inst.GetKey(Fluxon::InputSystem::IKeyCode::E))
 				cam.Translate(-cam.up, delta_sec);
 
 		}

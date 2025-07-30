@@ -5,7 +5,7 @@
 //ui vulkan data
 struct Vulkan_Engine_Prop
 {
-	//current imgui uses main render syste/pipeline 
+	//current imgui uses main render syste/pipelines 
 	VkInstance					vkInstance;
 	VkPhysicalDevice			physicalDevice;
 	VkDevice					device;

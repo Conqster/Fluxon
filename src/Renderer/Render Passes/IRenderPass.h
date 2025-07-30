@@ -3,6 +3,19 @@
 #include "Renderer/VulkanContext.h"
 
 
+////Or this could be use for Grpahics Pipeline as welll
+//enum ERenderPass
+//{
+//	RenderPass_0,						//A constant to define the starting pass
+//	RenderPass_Static = RenderPass_0,	// environments and level geomtery 
+//	RenderPas_Actor,					// objects and things that can move
+//	RenderPass_Sky,						//the backgroung 'behind' eveything
+//	RenderPass_NotRendered,				// objects that dont render but exist
+//
+//	RenderPass_Last,					// not used - a counter for for loop 
+//};
+
+
 
 namespace Fluxon {
 	namespace Vulkan {
