@@ -80,7 +80,7 @@ namespace Fluxon {
 		//Add empty object for skybox  
 		SceneRenderPrimitive skybox_render_obj{};
 		skybox_render_obj.pipelineIdx = 1; //<---skybox pipelines
-		skybox_render_obj.mesh = GetMeshByIdx(0); //<-- get a default cube 
+		skybox_render_obj.mesh = &GetMeshByIdx(0)->gpuMesh; //<-- get a default cube 
 		//skybox_render_obj.mesh = &mGlobalMeshes[0]; //<-- get a default cube 
 		//skybox_render_obj.mesh = mGlobalMeshes[0].get(); //<-- get a default cube 
 		skybox_render_obj.material = nullptr;

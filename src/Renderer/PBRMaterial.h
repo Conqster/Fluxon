@@ -52,11 +52,12 @@ namespace Fluxon {
 
 			}
 
-			static PBRMaterial CreatePBRMaterialMaps(VulkanContext* vk_ctx, VkCommandPool cmd_pool, std::array<const char*, SHADER_PBR_MATERIAL_MAX_MAPS> file_paths, VkFormat tex_image_format = VK_FORMAT_R8G8B8A8_SRGB, bool enable_anisotropu_sampling = true) {
+			//static PBRMaterial CreatePBRMaterialMaps(VulkanContext* vk_ctx, VkCommandPool cmd_pool, std::array<const char*, SHADER_PBR_MATERIAL_MAX_MAPS> file_paths, VkFormat tex_image_format = VK_FORMAT_R8G8B8A8_SRGB, bool enable_anisotropu_sampling = true) {
+			static PBRMaterial CreatePBRMaterialMaps(VulkanContext* vk_ctx, VkCommandPool cmd_pool, std::array<std::string, SHADER_PBR_MATERIAL_MAX_MAPS> file_paths, VkFormat tex_image_format = VK_FORMAT_R8G8B8A8_SRGB, bool enable_anisotropu_sampling = true) {
 				PBRMaterial mat;
-				Vulkan::Resources::CreateImageSamplerTexture(vk_ctx, cmd_pool, file_paths[0], tex_image_format, mat.albedo, enable_anisotropu_sampling);
-				Vulkan::Resources::CreateImageSamplerTexture(vk_ctx, cmd_pool, file_paths[1], tex_image_format, mat.normal, enable_anisotropu_sampling);
-				Vulkan::Resources::CreateImageSamplerTexture(vk_ctx, cmd_pool, file_paths[2], tex_image_format, mat.aoRM, enable_anisotropu_sampling);
+				Vulkan::Resources::CreateImageSamplerTexture(vk_ctx, cmd_pool, file_paths[0].c_str(), tex_image_format, mat.albedo, enable_anisotropu_sampling);
+				Vulkan::Resources::CreateImageSamplerTexture(vk_ctx, cmd_pool, file_paths[1].c_str(), tex_image_format, mat.normal, enable_anisotropu_sampling);
+				Vulkan::Resources::CreateImageSamplerTexture(vk_ctx, cmd_pool, file_paths[2].c_str(), tex_image_format, mat.aoRM, enable_anisotropu_sampling);
 				return mat;
 			}
 

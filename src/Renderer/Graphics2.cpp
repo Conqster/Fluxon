@@ -179,7 +179,7 @@ namespace Fluxon {
 			};
 
 
-			std::array<const char*, Vulkan::SHADER_PBR_MATERIAL_MAX_MAPS> pbr_mat_paths =
+			std::array<std::string, Vulkan::SHADER_PBR_MATERIAL_MAX_MAPS> pbr_mat_paths =
 			{
 				"assets/textures/worn_bronze_metal/2K/worn_bronze_metal_base_colour.jpg",
 				"assets/textures/worn_bronze_metal/2K/worn_bronze_metal_normal.jpg",

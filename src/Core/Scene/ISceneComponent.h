@@ -1,8 +1,10 @@
 #pragma once
 
 
-#include "Renderer/Mesh.h"
-#include "Renderer/PBRMaterial.h"
+//#include "Renderer/Mesh.h"
+#include "Resources/MeshResource.h"
+#include "Resources/MaterialResource.h"
+//#include "Renderer/PBRMaterial.h"
 #include "../Camera.h"
 
 #include "SceneData.h"
@@ -38,8 +40,8 @@ namespace Fluxon {
 			//TODO(Conqster): Need to change this arctecture 
 			//should not own gpu data just transfer datas
 			renderPrimitiveData.pipelineIdx = 0;
-			renderPrimitiveData.mesh = mesh;
-			renderPrimitiveData.material = material;
+			renderPrimitiveData.mesh = &mesh->gpuMesh;
+			renderPrimitiveData.material = &material->gpuMaterial;
 			renderPrimitiveData.pushConstantSpecs = {
 			{ VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(renderPrimitiveData.GPUModel), sizeof(glm::vec4), (void*)&new_mat_sys_hack},
 			{VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(renderPrimitiveData.GPUModel), (void*)&renderPrimitiveData.GPUModel}
@@ -64,15 +66,34 @@ namespace Fluxon {
 		//	return *this;
 		//}
 
-		RenderableComponent(Vulkan::Mesh* _mesh, Vulkan::PBRMaterial* _material, bool _visiblity = true, bool _new_mat_system = false) {
+		RenderableComponent(MeshResource* _mesh, MaterialResource* _material, bool _visiblity = true, bool _new_mat_system = false) {
 			mesh = _mesh;
 			material = _material;
 			visible = _visiblity;
 			new_mat_sys_hack = glm::vec4(0.0f, 0.0f, 0.0f, (float)_new_mat_system);
 
 			renderPrimitiveData.pipelineIdx = 0;
-			renderPrimitiveData.mesh = mesh;
-			renderPrimitiveData.material = material;
+			renderPrimitiveData.mesh = &mesh->gpuMesh;
+			renderPrimitiveData.material = &material->gpuMaterial;
+			renderPrimitiveData.pushConstantSpecs = {
+			{ VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(renderPrimitiveData.GPUModel), sizeof(glm::vec4), (void*)&new_mat_sys_hack},
+			{VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(renderPrimitiveData.GPUModel), (void*)&renderPrimitiveData.GPUModel}
+			};
+		}
+
+		RenderableComponent(int32_t _mesh_idx, int32_t _material_idx, bool _visiblity = true, bool _new_mat_system = false) {
+			meshIdx = _mesh_idx;
+			materialIdx = _material_idx;
+			visible = _visiblity;
+			new_mat_sys_hack = glm::vec4(0.0f, 0.0f, 0.0f, (float)_new_mat_system);
+		}
+
+
+		void UpdateGPUParameters() {
+
+			renderPrimitiveData.pipelineIdx = 0;
+			renderPrimitiveData.mesh = &mesh->gpuMesh;
+			renderPrimitiveData.material = &material->gpuMaterial;
 			renderPrimitiveData.pushConstantSpecs = {
 			{ VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(renderPrimitiveData.GPUModel), sizeof(glm::vec4), (void*)&new_mat_sys_hack},
 			{VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(renderPrimitiveData.GPUModel), (void*)&renderPrimitiveData.GPUModel}
@@ -80,8 +101,10 @@ namespace Fluxon {
 		}
 		//data points to a buffer of data 
 		//like shared resources as multple objcrt could shared data
-		Vulkan::Mesh* mesh				= nullptr;
-		Vulkan::PBRMaterial* material	= nullptr;
+		//Vulkan::Mesh* mesh				= nullptr;
+		MeshResource* mesh				= nullptr;
+		//Vulkan::PBRMaterial* material	= nullptr;
+		MaterialResource* material		= nullptr;
 		bool visible					= true;
 		//using alpha channel / w as flag for new material in shader
 		glm::vec4 new_mat_sys_hack		= glm::vec4(0.0f);
@@ -95,6 +118,10 @@ namespace Fluxon {
 		//Vulkan::DescriptorSetSpecification* descSetSpecifications; 
 		uint32_t pipelineGlobalBucketIdx = -1;
 		uint32_t descSetSpecificationGlobalBucketIdx = -1;
+
+		//for serialisation 
+		std::optional<uint32_t> meshIdx;
+		std::optional<uint32_t> materialIdx;
 
 		ESceneComponentType GetType() const override {
 			return ESceneComponentType::SCT_Renderable;

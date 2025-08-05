@@ -21,6 +21,8 @@
 #include "Scene/Scene.h"
 #include "Scene/SceneData.h"
 
+#include "Serialisation/SceneSerialisation.h"
+
 namespace Fluxon {
 
 	namespace Vulkan {
@@ -91,7 +93,10 @@ namespace Fluxon {
 		void SceneUIWindow();
 
 		void Cleanup() {
-
+			//SerialiseScene("assets/scenes/experiment.fluxon", mScene);
+			SceneSerialiser scene_serialiser;
+			scene_serialiser.SerialiseScene("assets/scenes/experiment.fluxon", mScene);
+			//SerialiseScene("experiment.fluxon", mScene);
 		}
 
 		bool Model_Transform_Editor_Panel_UI(glm::mat4& transform);

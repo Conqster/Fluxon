@@ -5,6 +5,7 @@
 #include <fstream>
 
 #include "Renderer/GPUStrutures.h"
+#include <glm/gtx/quaternion.hpp>
 
 
 namespace Fluxon {
@@ -257,40 +258,96 @@ namespace Fluxon {
 		}
 
 
-		static inline void DecomposeTransform(const glm::mat4& transform, glm::vec3& translate, glm::vec3& euler, glm::vec3& scale)
+		static inline bool DecomposeTransform(const glm::mat4& transform, glm::vec3& translate, glm::quat& quat, glm::vec3& scale)
 		{
-			glm::mat4 Mt = transform;
-			translate = glm::vec3(Mt[3]);
+			glm::mat4 local_matrix = transform;
+			translate = glm::vec3(local_matrix[3]);
 
-			if (std::abs(Mt[3][3] - 1.0f) > 1e-6f)
-				return;
+			if (std::abs(local_matrix[3][3] - 1.0f) > 1e-6f)
+				return false;
 
 			for (int i = 0; i < 4; ++i)
 				for (int j = 0; j < 4; ++j)
-					if (std::isnan(Mt[i][j]))
-						return;
+					if (std::isnan(local_matrix[i][j]) || std::isinf(local_matrix[i][j]))
+						return false;
 
 			//Remove translation for scale & rot extraction 
-			Mt[3] = glm::vec4(0.0f, 0.0f, 0.0f, Mt[3].w);
+			local_matrix[3] = glm::vec4(0.0f, 0.0f, 0.0f, local_matrix[3].w);
 
-			scale.x = glm::length(glm::vec3(Mt[0][0], Mt[1][0], Mt[2][0]));
-			scale.y = glm::length(glm::vec3(Mt[0][1], Mt[1][1], Mt[2][1]));
-			scale.z = glm::length(glm::vec3(Mt[0][2], Mt[1][2], Mt[2][2]));
+			//Extract scale
+			glm::vec3 column0(local_matrix[0]);
+			glm::vec3 column1(local_matrix[1]);
+			glm::vec3 column2(local_matrix[2]);
 
-			if (glm::determinant(Mt) < 0)
+			scale.x = glm::length(column0);
+			scale.y = glm::length(column1);
+			scale.z = glm::length(column2);
+
+			if (glm::determinant(local_matrix) < 0)
 				scale.x = -scale.x;
 
-			glm::mat3 Mr;
-			Mr[0] = glm::vec3(Mt[0][0], Mt[1][0], Mt[2][0]) / scale.x;
-			Mr[1] = glm::vec3(Mt[0][1], Mt[1][1], Mt[2][1]) / scale.y;
-			Mr[2] = glm::vec3(Mt[0][2], Mt[1][2], Mt[2][2]) / scale.z;
+			//Remove scale from matrix to isolate rotation
 
-			euler.x = atan2(Mr[2][1], Mr[2][2]);
-			euler.y = atan2(-Mr[2][0], glm::sqrt(Mr[2][1] * Mr[2][1] + Mr[2][2] * Mr[2][2]));
-			euler.z = atan2(Mr[1][0], Mr[0][0]);
+			if (scale.x != 0.0f)
+				column0 /= scale.x;
+			if (scale.y != 0.0f)
+				column1 /= scale.y;
+			if (scale.z != 0.0f)
+				column2 /= scale.z;
 
-			euler = glm::degrees(euler);
+			glm::mat3 rotation_matrix(column0, column1, column2);
+
+			quat = glm::quat_cast(rotation_matrix);
+
+			return true;
 		}
+
+
+
+		static inline bool DecomposeTransform(const glm::mat4& transform, glm::vec3& translate, glm::vec3& euler_degree, glm::vec3& scale)
+		{
+			glm::quat rotation_quat;
+
+			if (!DecomposeTransform(transform, translate, rotation_quat, scale))
+				return false;
+
+			glm::vec3 euler_radians = glm::eulerAngles(rotation_quat);
+			euler_degree = glm::degrees(euler_radians);
+
+			return true;
+		}
+
+
+		/// <summary>
+		/// 
+		/// // Use case
+		/// glm::vec3 position = glm::vec3(0.0f);
+		/// glm::vec3 euler_degrees = glm::vec(30.0f, 20.f, 30.0f);
+		/// glm::vec3 scale = glm::vec3(1.0f);
+		/// 
+		/// //Convert to quaternion
+		/// glmLLquat rotation = glm::quat(glm::radian(euler_degrees));
+		/// 
+		/// glm::mat4 transform = ComposeTranform(posiition, euler_degrees, scale);
+		/// 
+		/// </summary>
+		/// <param name="position"></param>
+		/// <param name="quat"></param>
+		/// <param name="scale"></param>
+		/// <returns></returns>
+		static inline glm::mat4 ComposeTransform(const glm::vec3& position, const glm::quat quat, const glm::vec3& scale)
+		{
+			glm::mat4 translation_matrix	= glm::translate(glm::mat4(1.0f), position); 
+			//glm::mat4 rotation_matrix = glm::toMat4(quat);
+			glm::mat4 rotation_matrix		= glm::mat4_cast(quat);
+			glm::mat4 scale_matrix			= glm::scale(glm::mat4(1.0f), scale);
+
+			return translation_matrix * rotation_matrix * scale_matrix;
+			//return  rotation_matrix * scale_matrix * translation_matrix;
+		}
+
+
+
 
 	} //#Utils
 }//#Fluxon

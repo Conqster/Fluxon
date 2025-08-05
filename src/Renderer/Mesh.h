@@ -7,6 +7,7 @@
 #include <vector>
 
 namespace Fluxon {
+
 	namespace Vulkan {
 
 

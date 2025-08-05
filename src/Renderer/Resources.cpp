@@ -226,7 +226,10 @@ namespace Fluxon {
 					static_cast<VkDeviceSize>(required_channels);
 
 				if (!pixels)
+				{
+					printf("path: %s", file_path);
 					throw std::runtime_error("Failed to load texture image !!!!!!");
+				}
 
 				GPUBuffer staging_buffer;
 

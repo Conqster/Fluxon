@@ -26,11 +26,12 @@ namespace Fluxon {
 			mChildren.reserve(10);
 		}
 		~SceneNode() {}
-		SceneNode(std::string name, glm::mat4& world_transform) {
+		SceneNode(std::string name, glm::mat4& world_transform, int _idx = -1) {
 			mName = name;
 			mTransformComponent.transform = world_transform;
 			AddComponent(std::make_unique<TransformComponent>(mTransformComponent));
 			mChildren.reserve(10);
+			idx = _idx;
 		}
 		virtual glm::mat4 GetWorldTransform() const {
 			return mTransformComponent.transform;
@@ -46,7 +47,7 @@ namespace Fluxon {
 	
 		class Scene* mScene = nullptr;
 
-		bool HasRenderableComponent() {
+		bool HasRenderableComponent() const {
 			return mRenderableComponentIdx.has_value();
 		}
 		RenderableComponent* GetRenderableComponent();
@@ -55,12 +56,44 @@ namespace Fluxon {
 			return &mTransformComponent;
 		}
 
+		const TransformComponent* GetTransformComponent() const{
+			return &mTransformComponent;
+		}
+
 		void AttachRenderable(uint32_t idx) {
 			mRenderableComponentIdx = idx;
 		}
 
-		std::string& Name() {
+		const std::string& Name() const {
 			return mName;
+		}
+
+		 std::string& Name()  {
+			return mName;
+		}
+
+		int32_t GetIdx() const {
+			return idx;
+		}
+
+		int32_t GetParentIdx() const {
+			return mParent;
+		}
+
+		void SetParentIdx(uint32_t idx) {
+			mParent = idx;
+		}
+
+		const std::vector<uint32_t>& GetChildren() const {
+			return mChildren;
+		}
+
+		void AddChild(uint32_t idx) {
+			mChildren.push_back(idx);
+		}
+
+		const int32_t GetRenderableComponentIdx() const {
+			return (HasRenderableComponent()) ? mRenderableComponentIdx.value() : -1;
 		}
 	private:
 		std::string mName;

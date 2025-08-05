@@ -44,6 +44,11 @@ namespace Fluxon {
 
 		}
 
+		//TODO(Conqster - Camera): part of pre frame passs, as its used in pre render for object visibility
+		void ComputeAndCacheCameraFrusturm(const Camera& cam) {
+
+		}
+
 		void SetLookTarget(const glm::vec3 target) {
 			forward = glm::normalize(target - position);
 

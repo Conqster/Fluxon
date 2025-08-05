@@ -16,6 +16,9 @@ include_directories(
 	Libraries/imgui
 	Libraries/stb_image
 	Libraries
+	
+	${PROJECT_SOURCE_DIR}
+	${PROJECT_SOURCE_DIR}/src
 )
 
 
@@ -26,11 +29,30 @@ link_directories(
 	Libraries/glfw/lib-vc2022
 )
 
+
+#create list of cmake helper 
+list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/vendor_cmake)
+#Libraries folder char name
+set(PROJECT_LIB_FLODER_NAME "Libraries")
+#add YAML 
+option(USE_YAML "Use YAML in project for serialisatin" ON)
+if(USE_YAML)
+	find_package(YAML REQUIRED)
+	
+	#file(GLOB_RECURSE YAML_SRC "Libraries/yaml-cpp-installed/include/yaml-cpp/*.h" "Libraries/yaml-cpp-installed/include/yaml-cpp/*.cpp")
+
+endif()
+
+
 #Source files 
 file(GLOB_RECURSE SRC_FILES src/*.cpp src/*.h)
 file(GLOB LIB_FILES "Libraries/imgui/*.h" "Libraries/imgui/*.c" "Libraries/imgui/*.cpp")
 	
-add_executable(${PROJECT_NAME} ${SRC_FILES} ${LIB_FILES})
+#if(USE_YAML)
+#	add_executable(${PROJECT_NAME} ${SRC_FILES} ${LIB_FILES} ${YAML_SRC})
+#else()
+	add_executable(${PROJECT_NAME} ${SRC_FILES} ${LIB_FILES})
+#endif()
 
 #Vulkan & core libraries
 target_link_libraries(${PROJECT_NAME}
@@ -38,6 +60,25 @@ target_link_libraries(${PROJECT_NAME}
 	assimp-vc143-mtd.lib
 	vulkan-1.lib
 )
+
+
+
+if(USE_YAML)
+	target_include_directories(${PROJECT_NAME} PUBLIC ${YAML_ALL_INCLUDES_DIR})
+	#YAML_LIBRARIES => includes both debug & Release libraries
+	#target_link_directories(${PROJECT_NAME} PUBLIC ${YAML_LIBRARIES})
+	#wrong directory use below
+	target_link_directories(${PROJECT_NAME} PUBLIC 
+												  optimized ${YAML_RELEASE_DIR}/lib
+												  debug ${YAML_DEBUG_DIR}/lib)
+	message(STATUS "Successfully found libraries: ${YAML_LIBRARIES_BY_NAME}")
+	
+	#Preprocessor definations
+	target_compile_definitions(${PROJECT_NAME} PRIVATE YAML_CPP_STATIC_DEFINE)
+	
+	
+	target_link_libraries(${PROJECT_NAME} ${YAML_LIBRARIES_BY_NAME})
+endif()
 
 #working directory in VS 
 set_target_properties(${PROJECT_NAME} PROPERTIES

@@ -9,6 +9,10 @@
 #include "Editor/MainSceneEditor.h"
 
 
+
+#define LOAD_SCENE_FROM_FILE 1
+
+
 namespace Fluxon {
 
 
@@ -149,18 +153,8 @@ namespace Fluxon {
 		if (app_cam_ref)
 			mCamera = app_cam_ref;
 
-		if (!mScene.HasRoot())
-			mScene.SetRootNode(std::make_unique<SceneNode>("Root-Node", glm::mat4(1.0f)));
 
-		mScene.mSceneResources.renderableComponents.reserve(10);
 
-		SceneNode* scene_root = mScene.GetRootNode();
-
-		auto& pos = (app_cam_ref) ? app_cam_ref->position : glm::vec3(0.0f);
-		SceneNode* camera_node = Scene::CreateNewNode(mScene, SceneNode("Camera-Node", glm::translate(glm::mat4(1.0f), pos)));
-		camera_node->AddComponent(std::make_unique<CameraComponent>(app_cam_ref));
-		//scene_root->AddChild(std::move(camera_node));
-		Scene::AttachChild(mScene, *scene_root, *camera_node);
 
 		mVulkanContext = Vulkan::CreateVulkanContext(&window, true, DebugCallback);
 
@@ -175,6 +169,33 @@ namespace Fluxon {
 		//so it would depend on renderpass 
 		//mVulkanContext.swapchain = std::make_unique<Vulkan::Swapchain>(&mDevice, window, mFrames[0].commandPool, forward_render_pass.renderPass);
 		mVulkanContext.swapchain = std::make_unique<Vulkan::Swapchain>(&mVulkanContext, window, mFrames[0].commandPool, forward_render_pass->GetRenderPassHandle());
+
+		
+		
+
+#if LOAD_SCENE_FROM_FILE
+		mScene.mSceneResources.camera = app_cam_ref;
+		//quick hack for loading
+		mScene.mSceneResources.directionalLight = &mDirLight;
+		SceneSerialiser scene_serialiser;
+		scene_serialiser.LoadScene(&mVulkanContext, mFrames[0].commandPool, "assets/scenes/experiment.fluxon", mScene);
+		mScene.mSceneResources.instantSceneName = &mScene.mName;
+#else
+		if (!mScene.HasRoot())
+			mScene.SetRootNode(SceneNode("Root-Node", glm::mat4(1.0f)));
+
+		mScene.mSceneResources.renderableComponents.reserve(10);
+
+		SceneNode* scene_root = mScene.GetRootNode();
+
+		auto& pos = (app_cam_ref) ? app_cam_ref->position : glm::vec3(0.0f);
+		SceneNode* camera_node = Scene::CreateNewNode(mScene, SceneNode("Camera-Node", glm::translate(glm::mat4(1.0f), pos)));
+		camera_node->AddComponent(std::make_unique<CameraComponent>(app_cam_ref));
+		//scene_root->AddChild(std::move(camera_node));
+		Scene::AttachChild(mScene, *scene_root, *camera_node);
+		mScene.SetCameraNode(camera_node);
+#endif // LOAD_SCENE_FROM_FILE
+
 
 
 		//TODO(Conqster-Uniformbuffer): have functionm to create new description set layout dynamically 
@@ -192,7 +213,7 @@ namespace Fluxon {
 		};
 
 
-		std::array<const char*, Vulkan::SHADER_PBR_MATERIAL_MAX_MAPS> pbr_mat_paths =
+		std::array<std::string, Vulkan::SHADER_PBR_MATERIAL_MAX_MAPS> pbr_mat_paths =
 		{
 			"assets/textures/worn_bronze_metal/2K/worn_bronze_metal_base_colour.jpg",
 			"assets/textures/worn_bronze_metal/2K/worn_bronze_metal_normal.jpg",
@@ -200,11 +221,18 @@ namespace Fluxon {
 		};
 
 
-		uint32_t pbr_mat_idx = Scene::CreateNewMaterial(mScene, Vulkan::PBRMaterial::CreatePBRMaterialMaps(&mVulkanContext, mFrames[0].commandPool, pbr_mat_paths), nullptr);
-		
+#if LOAD_SCENE_FROM_FILE
+		uint32_t pbr_mat_idx = 0;
+#else
+		//uint32_t pbr_mat_idx = Scene::CreateNewMaterial(mScene, Vulkan::PBRMaterial::CreatePBRMaterialMaps(&mVulkanContext, mFrames[0].commandPool, pbr_mat_paths), nullptr);
+		//uint32_t pbr_mat_idx = Scene::CreateNewMaterial(mScene, MaterialResource::CreatePBRMaterialResource(&mVulkanContext, mFrames[0].commandPool, pbr_mat_paths), nullptr);
+		uint32_t pbr_mat_idx = Scene::CreateNewMaterial(mScene, nullptr, &mVulkanContext, mFrames[0].commandPool, pbr_mat_paths);
+#endif // LOAD_SCENE_FROM_FILE
+
 		//Vulkan::PBRMaterial::CreatePBRMaterialMaps(&mVulkanContext, mRustyMetalPBRMat, mFrames[0].commandPool, pbr_mat_paths);
 		//matertial_desc_set_idx = mScene.AddDescriptorSetSpecification(Vulkan::PBRMaterial::GenerateMaterialDecriptorSetLayoutSpecification(&mVulkanContext, mScene.GetPBRMaterialByIdx(pbr_mat_idx), 0, 0));
-		matertial_desc_set_idx = mScene.AddDescriptorSetSpecification(Vulkan::PBRMaterial::GenerateMaterialDecriptorSetLayoutSpecification(&mVulkanContext, mScene.GetMaterialByIdx(pbr_mat_idx), 0, 0));
+		//matertial_desc_set_idx = mScene.AddDescriptorSetSpecification(Vulkan::PBRMaterial::GenerateMaterialDecriptorSetLayoutSpecification(&mVulkanContext, mScene.GetMaterialByIdx(pbr_mat_idx), 0, 0));
+		matertial_desc_set_idx = mScene.AddDescriptorSetSpecification(Vulkan::PBRMaterial::GenerateMaterialDecriptorSetLayoutSpecification(&mVulkanContext, mScene.GetMaterialByIdx(pbr_mat_idx).gpuMaterial, 0, 0));
 		//CreateDummyDescriptionSetLayout(&mVulkanContext, mMaterialDescriptorLayout, 0);
 		//CreateGraphicsPipeline();
 
@@ -251,8 +279,11 @@ namespace Fluxon {
 		mScene.GetGfxPipelineByIdx(skybox_gfx_pipeline_idx).Init(&mVulkanContext, skybox_gfx_pipeline_spec);
 		//mSkyboxGraphicsPipeline.Init(&mVulkanContext, skybox_gfx_pipeline_spec);
 
+#if LOAD_SCENE_FROM_FILE
+#else
+		//CreateTestSceneData(&mVulkanContext, mFrames[0].commandPool);
+#endif // LOAD_SCENE_FROM_FILE
 
-		CreateTestSceneData(&mVulkanContext, mFrames[0].commandPool);
 
 		std::vector<Vulkan::DescriptorSetSpecification> desc_set_layout_spec = {
 			mScene.GetDescriptorSetSpecificationByIdx(matertial_desc_set_idx),
@@ -315,7 +346,8 @@ namespace Fluxon {
 			mUseSamplingAnisotropy);
 		Vulkan::DescriptorBinding skybox_cube_tex_binding = Vulkan::DescriptorBinding::MakeImageSampler(2, 0, mScene.GetImageSamplerByIdx(skybox_image_sampler_idx));
 
-		auto pbr_material_tex_binding = Vulkan::PBRMaterial::GetDescriptorSetBindings(mScene.GetMaterialByIdx(pbr_mat_idx), 0);
+		//auto pbr_material_tex_binding = Vulkan::PBRMaterial::GetDescriptorSetBindings(mScene.GetMaterialByIdx(pbr_mat_idx), 0);
+		auto pbr_material_tex_binding = Vulkan::PBRMaterial::GetDescriptorSetBindings(mScene.GetMaterialByIdx(pbr_mat_idx).gpuMaterial, 0);
 
 		for (auto& frame : mFrames)
 		{
@@ -401,40 +433,45 @@ namespace Fluxon {
 	{
 
 
-		std::vector<GPUStructures::Vertex> vertices_data;
-		std::vector<uint16_t> indices_data;
+		//std::vector<GPUStructures::Vertex> vertices_data;
+		//std::vector<uint16_t> indices_data;
 
 		//mScene.mGlobalMeshes.reserve(10);
 
-		Fluxon::Utils::GetUnitCubeVertices(vertices_data, indices_data);
+		///Fluxon::Utils::GetUnitCubeVertices(vertices_data, indices_data);
 		//Vulkan::Mesh* mesh0 = mScene.AddMesh(Vulkan::Mesh(Vulkan::Mesh(vk_ctx, cmd_pool, vertices_data, indices_data)));
-		Vulkan::Mesh* mesh0 = Scene::CreateNewMesh(mScene, Vulkan::Mesh(vk_ctx, cmd_pool, vertices_data, indices_data), nullptr);
+		//uint32_t mesh0 = Scene::CreateNewMesh(mScene, Vulkan::Mesh(vk_ctx, cmd_pool, vertices_data, indices_data));
+		uint32_t mesh0 = Scene::CreateCube(mScene, vk_ctx, cmd_pool);
 		std::cout << "Pointer Memory Address: " << &mesh0 << "\n";
 		std::cout << "Memory Address: " << mesh0 << "\n";
-		Vulkan::Mesh* mesh1 = Scene::CreateNewMesh(mScene, Vulkan::Mesh(), nullptr);
-		Vulkan::Mesh* mesh2 = Scene::CreateNewMesh(mScene, Vulkan::Mesh(), nullptr);
-		Vulkan::Mesh* mesh3 = Scene::CreateNewMesh(mScene, Vulkan::Mesh(), nullptr);
+		//uint32_t mesh1 = Scene::CreateNewMesh(mScene, Vulkan::Mesh());
+		uint32_t mesh1 = Scene::CreateSphere(mScene, vk_ctx, cmd_pool);
+		//uint32_t mesh2 = Scene::CreateNewMesh(mScene, Vulkan::Mesh());
+		uint32_t mesh2 = Scene::CreateModel(mScene, vk_ctx, cmd_pool, "assets/models/model.dae");
+		//uint32_t mesh3 = Scene::CreateNewMesh(mScene, Vulkan::Mesh());
+		uint32_t mesh3 = Scene::CreateMesh(mScene, vk_ctx, cmd_pool, EPrimitiveMeshType::EPMT_Plane);
 		//mesh0->Generate(vk_ctx, cmd_pool, vertices_data, indices_data);
 
-		vertices_data.clear();
-		indices_data.clear();
-		Fluxon::Utils::GenerateSphereVertices(vertices_data, indices_data);
-		mesh1->Generate(vk_ctx, cmd_pool, vertices_data, indices_data);
+		//vertices_data.clear();
+		//indices_data.clear();
+		//Fluxon::Utils::GenerateSphereVertices(vertices_data, indices_data);
+		//mScene.GetMeshByIdx(mesh1)->Generate(vk_ctx, cmd_pool, vertices_data, indices_data);
+		//
+
+		//ModelLoader quick_loader;
+		//auto [model_vertices, model_indices] = quick_loader.LoadAsVerticesData("assets/models/model.dae", true, false);
+		//mScene.GetMeshByIdx(mesh2)->Generate(vk_ctx, cmd_pool, model_vertices, model_indices);
 
 
-		ModelLoader quick_loader;
-		auto [model_vertices, model_indices] = quick_loader.LoadAsVerticesData("assets/models/model.dae", true, false);
-		mesh2->Generate(vk_ctx, cmd_pool, model_vertices, model_indices);
-
-
-		vertices_data.clear();
-		indices_data.clear();
-		Fluxon::Utils::GetUnitQuadVertices(vertices_data, indices_data);
-		mesh3->Generate(vk_ctx, cmd_pool, vertices_data, indices_data);
+		//vertices_data.clear();
+		//indices_data.clear();
+		//Fluxon::Utils::GetUnitQuadVertices(vertices_data, indices_data);
+		//mScene.GetMeshByIdx(mesh3)->Generate(vk_ctx, cmd_pool, vertices_data, indices_data);
 
 
 		SceneNode* scene_root = mScene.GetRootNode();
-		Vulkan::PBRMaterial* mat = &mScene.GetMaterialByIdx(0);
+		//Vulkan::PBRMaterial* mat = &mScene.GetMaterialByIdx(0);
+		uint32_t mat = 0;
 
 		SceneNode* mesh_node0 = Scene::CreateNewNode(mScene, SceneNode("Mesh-Node0"));
 #if USE_EXPLICIT_COMPONENT
@@ -565,7 +602,7 @@ namespace Fluxon {
 			}
 
 			
-				Editor::MainSceneUIWindow(mScene.mSceneResources);
+				Editor::SceneRuntimeUIWindow(mScene.mSceneResources);
 				ImGui::ShowDemoWindow();
 				mImGuiUI.RenderFrame(curr_cmd_buff);
 			//render_passes.pass->End(curr_cmd_buff);

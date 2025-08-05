@@ -152,12 +152,16 @@ namespace Fluxon {
 	class SceneNode;
 	struct SceneResources
 	{
+		std::string* instantSceneName								= nullptr;
+
 		std::vector<TransformComponent*> renderableComponents;
 
 		std::vector<SceneNode*> sceneNodes;
 
 		GPUStructures::DirectionalLight* directionalLight			= nullptr;
 		GPUStructures::Skybox* skybox								= nullptr;
+
+		Camera* camera												= nullptr;
 	};
 
 }

@@ -29,10 +29,10 @@ namespace Fluxon {
 			auto render_comp = GetRenderableComponent();
 			if (render_comp)
 			{
-				if (render_comp->mesh->GetVertexBuffer().buffer == VK_NULL_HANDLE ||
-					render_comp->mesh->GetVertexBuffer().memory == VK_NULL_HANDLE ||
-					render_comp->mesh->GetIndexBuffer().memory == VK_NULL_HANDLE ||
-					render_comp->mesh->GetIndexBuffer().buffer == VK_NULL_HANDLE)
+				if (render_comp->mesh->gpuMesh.GetVertexBuffer().buffer == VK_NULL_HANDLE ||
+					render_comp->mesh->gpuMesh.GetVertexBuffer().memory == VK_NULL_HANDLE ||
+					render_comp->mesh->gpuMesh.GetIndexBuffer().memory == VK_NULL_HANDLE ||
+					render_comp->mesh->gpuMesh.GetIndexBuffer().buffer == VK_NULL_HANDLE)
 					return;
 
 				render_comp->renderPrimitiveData.GPUModel.transform = GetWorldTransform();
