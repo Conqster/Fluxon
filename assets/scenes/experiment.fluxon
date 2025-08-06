@@ -1,0 +1,156 @@
+mName: New Vulkan Test Scene (Sandbox)
+Has camera: true
+Main Camera:
+  position: {x: -2.676676, y: 1.911359, z: 6.787478}
+  forward: {x: 0.610034, y: -0.36007908, z: -0.7058333}
+  up: {x: 0.21966048, y: 0.87034214, z: -0.2541558}
+  right: {x: 0.7058333, y: -0, z: 0.610034}
+  fov: 45
+  nearPlane: 0.1
+  farPlane: 100
+  moveSpeed: 5
+  rotSpeed: 0.3
+Has direction light: true
+Directional light:
+  direction: {x: 0, y: 0.9, z: 0.3}
+  enable: true
+  colour: {x: 0.8235294, y: 0.8235294, z: 0.8235294}
+  shinness: 47
+SceneNodes:
+  count: 6
+  0:
+    mName: Root-Node
+    idx: 0
+    mParent: -1
+    Has Children: true
+    mChildren: [1, 2, 3, 4, 5]
+    Components:
+      mRenderableComponentIdx: -1
+      mTransformComponent:
+        mPosition: {x: 0, y: 0, z: 0}
+        mRotation: {x: 0, y: -0, z: 0}
+        mScale: {x: 1, y: 1, z: 1}
+  1:
+    mName: Camera-Node
+    idx: 1
+    mParent: 0
+    Has Children: false
+    mChildren: []
+    Components:
+      mRenderableComponentIdx: -1
+      mTransformComponent:
+        mPosition: {x: -0.93, y: 1.6, z: 8.55}
+        mRotation: {x: 0, y: -0, z: 0}
+        mScale: {x: 0.9999387, y: 0.9999631, z: 0.99995136}
+  2:
+    mName: Mesh-Node0_Cube
+    idx: 2
+    mParent: 0
+    Has Children: false
+    mChildren: []
+    Components:
+      mRenderableComponentIdx: 0
+      mTransformComponent:
+        mPosition: {x: -0.23, y: 0, z: 2.63}
+        mRotation: {x: 0, y: -0, z: 0}
+        mScale: {x: 1, y: 1, z: 1}
+  3:
+    mName: Mesh-Node_Sphere
+    idx: 3
+    mParent: 0
+    Has Children: false
+    mChildren: []
+    Components:
+      mRenderableComponentIdx: 1
+      mTransformComponent:
+        mPosition: {x: 1.05, y: -0.13, z: 3.8}
+        mRotation: {x: 0, y: -0, z: 0}
+        mScale: {x: 1, y: 1, z: 1}
+  4:
+    mName: Mesh-Node_Dragon_Model
+    idx: 4
+    mParent: 0
+    Has Children: false
+    mChildren: []
+    Components:
+      mRenderableComponentIdx: 2
+      mTransformComponent:
+        mPosition: {x: -5.05, y: -0.4, z: -2.67}
+        mRotation: {x: 108.8208, y: 51.638397, z: 140.41386}
+        mScale: {x: 0.020009426, y: 0.020002348, z: 0.020008147}
+  5:
+    mName: Mesh-Node_Plane
+    idx: 5
+    mParent: 0
+    Has Children: false
+    mChildren: []
+    Components:
+      mRenderableComponentIdx: 3
+      mTransformComponent:
+        mPosition: {x: -1.04, y: -0.49, z: 0}
+        mRotation: {x: -90.00001, y: -0, z: 0}
+        mScale: {x: 9.999998, y: 10.002083, z: 10.002083}
+Renderable Components:
+  - id: 0
+    mesh: 0
+    material: 0
+    visible: true
+    pipelineGlobalBucketIdx: -1
+    descSetSpecificationGlobalBucketIdx: -1
+  - id: 1
+    mesh: 1
+    material: 0
+    visible: true
+    pipelineGlobalBucketIdx: -1
+    descSetSpecificationGlobalBucketIdx: -1
+  - id: 2
+    mesh: 2
+    material: 0
+    visible: true
+    pipelineGlobalBucketIdx: -1
+    descSetSpecificationGlobalBucketIdx: -1
+  - id: 3
+    mesh: 3
+    material: 0
+    visible: true
+    pipelineGlobalBucketIdx: -1
+    descSetSpecificationGlobalBucketIdx: -1
+Mesh Resources:
+  - id: 0
+    type: Static
+    primitiveType: Cube
+  - id: 1
+    type: Static
+    primitiveType: Sphere
+  - id: 2
+    type: Static
+    primitiveType: ModelMesh
+    model path: assets/models/model.dae
+  - id: 3
+    type: Static
+    primitiveType: Plane
+Material Resources:
+  - id: -1
+    format: VK_FORMAT_R8G8B8A8_SRGB
+    anisotropicSampling: true
+    Texture Maps:
+      Albedo: assets/textures/worn_bronze_metal/2K/worn_bronze_metal_base_colour.jpg
+      Normal: assets/textures/worn_bronze_metal/2K/worn_bronze_metal_normal.jpg
+      aoRM: assets/textures/worn_bronze_metal/2K/worn_bronze_metal_orm.jpg
+Experimental Matrix:
+  m00: 1
+  m01: 0
+  m02: 0
+  m03: 0
+  m10: 0
+  m11: 1
+  m12: 0
+  m13: 0
+  m20: 0
+  m21: 0
+  m22: 1
+  m23: 0
+  m30: 0
+  m31: 0
+  m32: 0
+  m33: 1

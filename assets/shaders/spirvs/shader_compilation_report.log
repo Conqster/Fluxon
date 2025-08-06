@@ -1,21 +1,21 @@
 
-[24/07/2025 10:54:40.27] Begin Cleaning Old SPIR-V shaders.
+[05/08/2025 18:32:44.89] Begin Cleaning Old SPIR-V shaders.
 model_shading.frag.spv 		-Deleted.
 model_shading.vert.spv 		-Deleted.
 skybox.frag.spv 		-Deleted.
 skybox.vert.spv 		-Deleted.
-[24/07/2025 10:54:40.31] Completed Cleaning Old SPIR-V shaders.
+[05/08/2025 18:32:44.93] Completed Cleaning Old SPIR-V shaders.
 
  
-[24/07/2025 10:54:40.34] Recompiling shaders to SPIR-V.
+[05/08/2025 18:32:44.95] Recompiling shaders to SPIR-V.
  
-[24/07/2025 10:54:40.36] == Compiling Vertex shaders to SPIR-V.==
-[24/07/2025 10:54:40.36] [VEXTEX] - model_shading.vert 		: OK 
-[24/07/2025 10:54:40.36] [VEXTEX] - skybox.vert 		: OK 
+[05/08/2025 18:32:44.97] == Compiling Vertex shaders to SPIR-V.==
+[05/08/2025 18:32:44.97] [VEXTEX] - model_shading.vert 		: OK 
+[05/08/2025 18:32:44.97] [VEXTEX] - skybox.vert 		: OK 
  
-[24/07/2025 10:54:40.68] == Compiling Fragment shaders to SPIR-V.==
-[24/07/2025 10:54:40.68] [FRAGMENT] - model_shading.frag 		: OK 
-[24/07/2025 10:54:40.68] [FRAGMENT] - skybox.frag 		: OK 
+[05/08/2025 18:32:45.22] == Compiling Fragment shaders to SPIR-V.==
+[05/08/2025 18:32:45.22] [FRAGMENT] - model_shading.frag 		: OK 
+[05/08/2025 18:32:45.22] [FRAGMENT] - skybox.frag 		: OK 
 
 =============================
 Shader Compilation Summary 
