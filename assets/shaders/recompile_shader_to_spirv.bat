@@ -35,10 +35,11 @@ echo [Recompiling shaders...]
 >> %LOG_FILE% echo [%DATE% %TIME%] Recompiling shaders to SPIR-V.
 >> %LOG_FILE% echo. 
 
+
+
 set v_fail_count=0
 set v_success_count=0
 set v_total_shader=0
-
 
 
 echo.
@@ -94,10 +95,68 @@ for %%f in (*.frag) do (
 	set /a f_total_shader+=1
 )
 
+
+echo.
+echo - Compute shaders...
+echo. 
+
+set c_fail_count=0
+set c_success_count=0
+set c_total_shader=0
+
+>> %LOG_FILE% echo. 
+>> %LOG_FILE% echo [%DATE% %TIME%] == Compiling Compute shaders to SPIR-V.==
+for %%f in (*.comp) do (
+	<nul set /p="-- Compiling - %%~nxf to SPIR-V... "
+	%GLSLC% "%%f" -o spirvs/"%%~nf".comp.spv 2> spirvs/%%~nf.comp.log
+	
+	if !errorlevel! NEQ 0 (
+		echo !ESC![1;31m[FAIL]!ESC![0m
+		echo [%DATE% %TIME%] [COMPUTE] - %%~nxf 	: FAIL >> %LOG_FILE%
+		set /a c_fail_count+=1
+	) else (
+		echo !ESC![1;32m[OK]!ESC![0m
+		echo [%DATE% %TIME%] [COMPUTE] - %%~nxf 		: OK >> %LOG_FILE%
+		set /a c_success_count+=1
+		del spirvs\%%~nf.comp.log >nul 2>&1
+	)
+	
+	set /a c_total_shader+=1
+)
+
+
+echo.
+echo - Geometry shaders...
+echo. 
+
+set g_fail_count=0
+set g_success_count=0
+set g_total_shader=0
+
+>> %LOG_FILE% echo. 
+>> %LOG_FILE% echo [%DATE% %TIME%] == Compiling Geometry shaders to SPIR-V.==
+for %%f in (*.geom) do (
+	<nul set /p="-- Compiling - %%~nxf to SPIR-V... "
+	%GLSLC% "%%f" -o spirvs/"%%~nf".geom.spv 2> spirvs/%%~nf.geom.log
+	
+	if !errorlevel! NEQ 0 (
+		echo !ESC![1;31m[FAIL]!ESC![0m
+		echo [%DATE% %TIME%] [GEOMETRY] - %%~nxf 	: FAIL >> %LOG_FILE%
+		set /a g_fail_count+=1
+	) else (
+		echo !ESC![1;32m[OK]!ESC![0m
+		echo [%DATE% %TIME%] [GEOMETRY] - %%~nxf 		: OK >> %LOG_FILE%
+		set /a g_success_count+=1
+		del spirvs\%%~nf.geom.log >nul 2>&1
+	)
+	
+	set /a g_total_shader+=1
+)
+
 :summary
-set /a total_success=!v_success_count! + !f_success_count!
-set /a total_fail=!v_fail_count! + !f_fail_count!
-set /a total_all=!v_total_shader! + !f_total_shader!
+set /a total_success=!v_success_count! + !f_success_count! + !c_success_count! + !g_success_count!
+set /a total_fail=!v_fail_count! + !f_fail_count! + !c_fail_count! + !g_fail_count!
+set /a total_all=!v_total_shader! + !f_total_shader! + !c_total_shader! + !c_total_shader!
 
 >> %LOG_FILE% echo.
 >> %LOG_FILE% echo =============================
@@ -113,6 +172,18 @@ set /a total_all=!v_total_shader! + !f_total_shader!
 >> %LOG_FILE% echo Fragment shaders FAIL	: !f_fail_count!
 >> %LOG_FILE% echo -----------------------------
 >> %LOG_FILE% echo Fragment Total		: !f_total_shader!
+>> %LOG_FILE% echo -----------------------------
+>> %LOG_FILE% echo.
+>> %LOG_FILE% echo Compute shaders OK	: !c_success_count!
+>> %LOG_FILE% echo Compute shaders FAIL	: !c_fail_count!
+>> %LOG_FILE% echo -----------------------------
+>> %LOG_FILE% echo Compute Total		: !c_total_shader!
+>> %LOG_FILE% echo -----------------------------
+>> %LOG_FILE% echo.
+>> %LOG_FILE% echo Geometry shaders OK	: !g_success_count!
+>> %LOG_FILE% echo Geometry shaders FAIL	: !g_fail_count!
+>> %LOG_FILE% echo -----------------------------
+>> %LOG_FILE% echo Geometry Total		: !g_total_shader!
 >> %LOG_FILE% echo -----------------------------
 >> %LOG_FILE% echo.
 >> %LOG_FILE% echo Total OK		: !total_success!
@@ -165,13 +236,35 @@ if %total_fail% NEQ 0 (
 		echo.
 	
 	>> %LOG_FILE% echo 		"%%f"
-)
+	)
+	
+	>> %LOG_FILE% echo 	failed compute shaders:
+	echo FAILED COMPUTE SHADERS
+	echo.
+	
+	for %%f in (spirvs\*.comp.log) do (
+		echo !ESC![1;31m-- %%~nxf LOG --!ESC![0m
+		type "%%f"
+		echo.
+	
+	>> %LOG_FILE% echo 		"%%f"
+	)
+	
+	>> %LOG_FILE% echo 	failed geometry shaders:
+	echo FAILED GEOMETRY SHADERS
+	echo.
+	
+	for %%f in (spirvs\*.geom.log) do (
+		echo !ESC![1;31m-- %%~nxf LOG --!ESC![0m
+		type "%%f"
+		echo.
+	
+	>> %LOG_FILE% echo 		"%%f"
+	)
 	
 ) else (
 	echo !ESC![1;32mSUCCESSFULLY COMPILED ALL SHADERS TO SPIR-V.!ESC![0m
 	>> %LOG_FILE% echo SUCCESSFULLY COMPILED ALL SHADERS TO SPIR-V.
-	
-	
 )
 
 

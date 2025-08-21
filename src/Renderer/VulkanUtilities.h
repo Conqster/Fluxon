@@ -17,6 +17,38 @@ namespace Fluxon {
 	namespace Vulkan {
 		namespace Utils {
 
+			inline constexpr bool HasStencilComponent(VkFormat format) {
+				return format == VK_FORMAT_D32_SFLOAT_S8_UINT || format == VK_FORMAT_D24_UNORM_S8_UINT;
+			}
+
+			inline constexpr bool IsDepthFormat(VkFormat format) {
+				return format == VK_FORMAT_D32_SFLOAT || HasStencilComponent(format);
+			}
+
+			inline constexpr VkImageAspectFlags GetAspectMask(VkFormat format)
+			{
+				if (HasStencilComponent(format))
+					return VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
+				else if (IsDepthFormat(format))
+					return VK_IMAGE_ASPECT_DEPTH_BIT;
+
+				return VK_IMAGE_ASPECT_COLOR_BIT;
+			}
+
+			static VkDescriptorSetLayout CreateDummyDescriptorSetLayout(const VulkanContext* vk_ctx)
+			{
+				VkDescriptorSetLayoutCreateInfo layout_create_info{};
+				layout_create_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+				layout_create_info.bindingCount = 0;
+				layout_create_info.pBindings = VK_NULL_HANDLE;
+
+				VkDescriptorSetLayout dummy;
+				if (vkCreateDescriptorSetLayout(vk_ctx->device, &layout_create_info, nullptr, &dummy) != VK_SUCCESS)
+					throw std::runtime_error("Failed to create descriptor set layout!!!!!!!!");
+
+				return dummy;
+			}
+
 			static std::vector<const char*> GetRequiredExtensions(bool enable_validation_layers) {
 				uint32_t glfw_extension_count = 0;
 				const char** pp_glfw_extensions;
@@ -52,6 +84,10 @@ namespace Fluxon {
 				vkEnumerateDeviceExtensionProperties(device, nullptr, &extension_count, nullptr);
 				std::vector<VkExtensionProperties> available_extensions(extension_count);
 				vkEnumerateDeviceExtensionProperties(device, nullptr, &extension_count, available_extensions.data());
+
+		/*		available_extensions.clear();
+				available_extensions.push_back({ VK_KHR_SWAPCHAIN_EXTENSION_NAME , 1 });
+				available_extensions.push_back({ "VK_KHR_seperate_depth_stencil_layouts" , 1 });*/
 
 				std::cout << "\n\n\033[1;32m device available extension count: \033[0m" << extension_count << std::endl;
 				for (const auto& available_extension : available_extensions)
@@ -136,8 +172,9 @@ namespace Fluxon {
 				int i = 0;
 				for (const auto& queue_family : queue_families)
 				{
-					if (queue_family.queueFlags & VK_QUEUE_GRAPHICS_BIT)
-						indices.graphicsFamily = i;
+					if ((queue_family.queueFlags & VK_QUEUE_GRAPHICS_BIT) &&
+						(queue_family.queueFlags & VK_QUEUE_COMPUTE_BIT))
+						indices.graphicsAndComputeFamily = i;
 
 					//look for a queue family which has the capablity of presenting 
 					//to our window surface
@@ -159,9 +196,6 @@ namespace Fluxon {
 				return FindQueueFamilies(vk_ctx.physicalDevice, vk_ctx.surface);
 			}
 
-			static bool HasStencilComponent(VkFormat format) {
-				return format == VK_FORMAT_D32_SFLOAT_S8_UINT || format == VK_FORMAT_D24_UNORM_S8_UINT;
-			}
 
 			static VkFormat FindSupportedFormat(const VkPhysicalDevice& physical_device, const std::vector<VkFormat>& candidates, VkImageTiling req_img_tiling, VkFormatFeatureFlags required_features) {
 
@@ -242,69 +276,124 @@ namespace Fluxon {
 				vkFreeCommandBuffers(vk_ctx->device, command_pool, 1, &command_buffer);
 			}
 
+
+
+
+			//Later support multiple /batching multiple transitions 
+			struct LayoutTransitionInfo
+			{
+				VkImageLayout oldLayout					= VK_IMAGE_LAYOUT_UNDEFINED;
+				VkImageLayout newLayout					= VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+
+
+				//vulkan pipeline, stage for layout transition
+				//'scrStageMask' -> stage where the image was previous used
+				VkPipelineStageFlags srcStageMask		= VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+				//'dstStageMask' -> stage where the layout will be used next 
+				VkPipelineStageFlags dstStageMask		= VK_PIPELINE_STAGE_TRANSFER_BIT;
+
+				//memory access mask for the barrier
+				//'srcAccess' -> previous access type (e.g read, write, shader read, attachment write etc)
+				VkAccessFlags srcAccess					= 0;
+				//'dstAccess' -> future access type after transition (e.g read, write, shader read, attachment write etc)
+				VkAccessFlags dstAccess					= VK_ACCESS_TRANSFER_WRITE_BIT;
+
+				//Subrource info 
+				//no of array layers to transition (e.g for image2DArray)
+				uint32_t subRangeLayerCount				= 1;
+			};
+
+
+			constexpr LayoutTransitionInfo kImageUndefinedToDstOptimal = {
+				VK_IMAGE_LAYOUT_UNDEFINED,
+				VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+				
+				VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+				VK_PIPELINE_STAGE_TRANSFER_BIT, 
+
+				0,
+				VK_ACCESS_TRANSFER_WRITE_BIT, 
+				
+				1
+			};
+			constexpr LayoutTransitionInfo kImageDstOptimalToShaderOptimalRead = {
+				VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 
+				VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+
+				VK_PIPELINE_STAGE_TRANSFER_BIT,
+				VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+
+				VK_ACCESS_TRANSFER_WRITE_BIT,
+				VK_ACCESS_SHADER_READ_BIT,
+				
+				1
+			};
+			constexpr LayoutTransitionInfo kImageUndefinedToDepthStencilOptimal = {
+				VK_IMAGE_LAYOUT_UNDEFINED,
+				VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+
+				VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+				VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT,
+
+				0,
+				VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+				
+				1
+			};
+			constexpr LayoutTransitionInfo kImageUndefinedToColourAttachmentOptimal = {
+				VK_IMAGE_LAYOUT_UNDEFINED,
+				VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+
+				VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+				VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+
+				0,
+				VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+				
+				1
+			};
+
+
+	
+			/// <summary>
+			/// for now, the pipeline command barrier is called per function call
+			/// later in the future, a batch system would be implemented based 
+			/// on the growth in transition call and if multiple transition can be pair as 
+			/// a group. 
+			/// then the function only batch and grp similar transtions togerther to a deferred 
+			/// cmd call.
+			/// </summary>
+			/// <param name="vk_ctx"></param>
+			/// <param name="command_pool"></param>
+			/// <param name="image"></param>
+			/// <param name="format"></param>
+			/// <param name="transition_info"></param>
 			static void TransitionImageLayout(const VulkanContext* vk_ctx, VkCommandPool command_pool,
-				VkImage image, VkFormat format, VkImageLayout old_layout, VkImageLayout new_layout, uint32_t layer_count = 1) {
+				VkImage image, VkFormat format, LayoutTransitionInfo transition_info) {
 
 				VkCommandBuffer command_buffer = BeginSingleTimeCommand(vk_ctx->device, command_pool);
 
-				VkPipelineStageFlags source_stage;
-				VkPipelineStageFlags destination_stage;
-
 				VkImageMemoryBarrier memory_barrier{};
 				memory_barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-				memory_barrier.oldLayout = old_layout; //VK_IMAGE_LAYOUT_UNDEFINED is we do not care about the image existing content
-				memory_barrier.newLayout = new_layout;
+				memory_barrier.oldLayout = transition_info.oldLayout;
+				memory_barrier.newLayout = transition_info.newLayout;
 				memory_barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
 				memory_barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
 				memory_barrier.image = image;
 
+				memory_barrier.srcAccessMask = transition_info.srcAccess;
+				memory_barrier.dstAccessMask = transition_info.dstAccess;
+
 				//sub resources
-				if (new_layout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
-				{
-					memory_barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
-					if (HasStencilComponent(format))
-						memory_barrier.subresourceRange.aspectMask |= VK_IMAGE_ASPECT_STENCIL_BIT;
-				}
-				else
-					memory_barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+				memory_barrier.subresourceRange.aspectMask =  GetAspectMask(format);
 				memory_barrier.subresourceRange.baseMipLevel = 0;
 				memory_barrier.subresourceRange.levelCount = 1;
 				memory_barrier.subresourceRange.baseArrayLayer = 0;
-				memory_barrier.subresourceRange.layerCount = layer_count; // 1;
-
-				//old layout undefinied/irrelevant 
-				//trying to writing to writing to transfer buffer
-				if (old_layout == VK_IMAGE_LAYOUT_UNDEFINED && new_layout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL)
-				{
-					memory_barrier.srcAccessMask = 0; //<-- Specifies the  type of access that must happen-before the barrier
-					memory_barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT; //<-- Specifies the  type of access that must wait until-after the barrier
-
-					source_stage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-					destination_stage = VK_PIPELINE_STAGE_TRANSFER_BIT;
-				}
-				//if old layout used as transfer destination 
-				else if (old_layout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL && new_layout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
-				{
-					memory_barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-					memory_barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-
-					source_stage = VK_PIPELINE_STAGE_TRANSFER_BIT;
-					destination_stage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-				}
-				else if (old_layout == VK_IMAGE_LAYOUT_UNDEFINED && new_layout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
-				{
-					memory_barrier.srcAccessMask = 0;
-					memory_barrier.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-
-					source_stage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-					destination_stage = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
-				}
-				else
-					throw std::invalid_argument("Unsupported image layout transition!!!!!!!!!");
+				memory_barrier.subresourceRange.layerCount = transition_info.subRangeLayerCount; // 1;
 
 				vkCmdPipelineBarrier(
 					command_buffer,
-					source_stage, destination_stage,
+					transition_info.srcStageMask, transition_info.dstStageMask,
 					0,
 					0, nullptr,
 					0, nullptr,

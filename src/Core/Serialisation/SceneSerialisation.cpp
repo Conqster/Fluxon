@@ -20,7 +20,7 @@ namespace Fluxon {
 		if (has_camera)
 		{
 			out << YAML::Key << "Main Camera";
-			out << YAML::convert<Camera>::encode(*scene.mSceneResources.camera);
+			out << YAML::convert<EditorCamera>::encode(*scene.mSceneResources.camera);
 		}
 
 		bool has_dir_light = (scene.mSceneResources.directionalLight);
@@ -126,7 +126,7 @@ namespace Fluxon {
 			{
 				auto& cam = scene.mSceneResources.camera;
 				//YAML::convert<Camera>::decode(root_node["Main Camera"], *cam);
-				*cam = root_node["Main Camera"].as<Camera>();
+				*cam = root_node["Main Camera"].as<EditorCamera>();
 			}
 		}
 

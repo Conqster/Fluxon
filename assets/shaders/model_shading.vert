@@ -13,12 +13,15 @@ out VS_OUT
 	layout(location = 2) vec3 fragPos;
 	layout(location = 3) vec3 viewPos;
 	layout(location = 4) vec3 normal;
+	layout(location = 5) vec4 fragPosLightSpace;
 }vs_out;
 
 layout(set = 1, binding = 0) uniform Camera
 {
 	mat4 view; 
 	mat4 proj;
+	mat4 lightView;
+	mat4 lightProj;
 	vec3 pos;
 }uCamera;
 
@@ -36,6 +39,8 @@ void main()
 	vs_out.normal = mat3(transform) * normalize(nor);
 	//vs_out.viewPos = transpose(uCamera.view)[3].xyz;
 	vs_out.viewPos = uCamera.pos;
+
+	vs_out.fragPosLightSpace = uCamera.lightProj * uCamera.lightView * transform * vec4(pos, 1.0f);
 	
 	vFragTexCoord = uv;
 	vFragColour = colour;

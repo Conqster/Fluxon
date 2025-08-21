@@ -23,20 +23,37 @@
 
 #include "Serialisation/SceneSerialisation.h"
 
+#include "Renderer/Render Passes/ShadowRenderPass.h"
+#include "Renderer/Render Passes/ComputePass.h"
+
+#include "Renderer/DebugLine.h"
+#include "Renderer/Render Passes/ViewVoxelPass.h"
+
+#include "Core.h"
+
 namespace Fluxon {
 
 	namespace Vulkan {
 	
 		//Propably move this into vulkanContext struct/class 
-		inline void BeginFrame2(VulkanContext& vk_render_ctx, Vulkan::FrameResources& frame_data, uint32_t& o_img_idx, const Platform::Window& window, VkRenderPass render_pass, UI_System* ui_in_use = nullptr);
-		inline void EndFrame2(FrameResources& frame_data, VulkanContext& vk_render_ctx, uint32_t img_idx, Platform::Window& window, VkRenderPass render_pass);
+		inline void BeginGfxFrameCommand(VulkanContext& vk_render_ctx, Vulkan::FrameResources& frame_reso, uint32_t& o_img_idx,
+							const Platform::Window& window, VkRenderPass render_pass, UI_System* ui_in_use = nullptr);
+
+		inline void EndGfxFrameCommand(FrameResources& frame_reso, VulkanContext& vk_render_ctx, uint32_t img_idx);
+		
+		
+		inline void SwapPresentFrameImage(FrameResources& frame_reso, VulkanContext& vk_render_ctx, uint32_t img_idx, Platform::Window& window, VkRenderPass render_pass);
+		
+		inline void BeginComputeFrameCommand(VulkanContext& vk_render_ctx, FrameResources& frame_resources, class ComputePass* compute_pass = nullptr);
+		inline void EndComputeFrameCommand(VulkanContext& vk_render_ctx, FrameResources& frame_reso);
+
 		inline void WindowResizedRecreateResource2(VulkanContext& vk_render_ctx, const Platform::Window& window, VkCommandPool cmd_pool, VkRenderPass render_pass);
 	
 	}
 	
 
 
-	class SceneRuntime
+	class SceneRuntime : public NonCopyable
 	{
 	private:
 		Vulkan::VulkanContext mVulkanContext;
@@ -59,12 +76,36 @@ namespace Fluxon {
 
 		SceneContext mSceneContext;
 
+		Vulkan::Resources::ImGui_Texture_Test experiment_texture;
 
+		Vulkan::ShadowRenderPass mShadowGfxPass;
+		Vulkan::ComputePass mComputePass;
+
+		Vulkan::SceneVoxelPass mSceneCollsionVoxelPass;
+
+		uint32_t mSceneModelDescSetIdx;
+
+
+		//Vulkan::GraphicsPipeline mDebugLinePipeline;
+		//Vulkan::GPUBuffer mDebugVertexBuffer;
+
+		Vulkan::DebugLine mDebugLines;
 	public:
 		void Init(Platform::Window& window, Camera* app_cam_ref = nullptr);
 
 		void SetIMGUI(UI_System& ui) {
 			mImGuiUI = ui;
+
+			Vulkan::Resources::ImGui_Texture_Test::CreateTexture(&mVulkanContext, mFrames[0].commandPool,
+				//"textures/Manchester_512.png",
+				"assets/textures/melady_square.jpg",
+				VK_FORMAT_R8G8B8A8_SRGB, experiment_texture,
+				mUseSamplingAnisotropy);
+			mScene.mSceneResources.experiment_texture = &experiment_texture;
+
+			auto& voxelRT = mSceneCollsionVoxelPass.GetDepthRenderTarget();
+			if (!voxelRT.targetMask.Contains(ERenderTargetBits::ImGuiView))
+				Vulkan::RenderTarget::MakeRenderTarget(&mVulkanContext, voxelRT, ERenderTargetBits::ImGuiView);
 		}
 
 		std::vector<Vulkan::FrameResources>& GetFrames() { return mFrames; }
@@ -87,7 +128,7 @@ namespace Fluxon {
 		void Update(float delta_time, Platform::Window* p_window, Camera* p_frame_camera);
 		//void DrawScene2(Camera* camera, glm::vec3 translate_model, glm::vec3 rotate_axis);
 
-		void UpdateGlobalFrameDataUBO(Vulkan::FrameResources& frame_resources, float win_width, float win_height);
+		void UpdateGlobalFrameDataUBO(Vulkan::FrameResources& frame_resources, float win_width, float win_height, glm::mat4 light_view, glm::mat4 light_proj);
 		//void RecordRenderPass(VkCommandBuffer cmd_buff, ForwardRenderPass& pass, const FrameResources& frame_resources, uint32_t img_idx, VkExtent2D render_area_extent, UI_System* ui_in_use = nullptr);
 
 		void SceneUIWindow();
@@ -97,6 +138,27 @@ namespace Fluxon {
 			SceneSerialiser scene_serialiser;
 			scene_serialiser.SerialiseScene("assets/scenes/experiment.fluxon", mScene);
 			//SerialiseScene("experiment.fluxon", mScene);
+
+			vkDeviceWaitIdle(mVulkanContext.device);
+
+			mDebugLines.Cleanup(&mVulkanContext);
+
+			Vulkan::Resources::ImGui_Texture_Test::Destroy(mVulkanContext.device, experiment_texture);
+			
+			mImGuiUI.Shutdown();
+
+
+			Vulkan::DestroyFrameObjects(&mVulkanContext, mFrames);
+
+			mShadowGfxPass.Cleanup(&mVulkanContext);
+			mComputePass.Cleanup(&mVulkanContext);
+
+			mScene.DestroyScene(&mVulkanContext);
+
+			mVulkanContext.swapchain->Cleanup();
+
+			//Vulkan::DestroyDevice(&mDevice, true);
+			mVulkanContext.DestroyVulkanContext(true);
 		}
 
 		bool Model_Transform_Editor_Panel_UI(glm::mat4& transform);

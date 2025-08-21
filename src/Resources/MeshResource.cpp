@@ -61,6 +61,11 @@ namespace Fluxon {
 
 	}
 
+	void MeshResource::DestroyMeshResource(VkDevice device, MeshResource& mesh_resource)
+	{
+		mesh_resource.gpuMesh.Cleanup(device);
+	}
+
 } //namespace Fluxon
 
 

@@ -18,8 +18,8 @@ namespace Fluxon {
 		}
 		void Mesh::Cleanup(VkDevice device)
 		{
-			DestoryBuffer(device, mVertexBuffer);
-			DestoryBuffer(device, mIndexBuffer);
+			GPUBuffer::DestoryBuffer(device, mVertexBuffer);
+			GPUBuffer::DestoryBuffer(device, mIndexBuffer);
 		}
 		void Mesh::Bind(VkCommandBuffer cmd_buffer)
 		{
@@ -42,14 +42,14 @@ namespace Fluxon {
 
 			GPUBuffer staging_buffer;
 
-			CreateBuffer(vk_ctx, buffer_size,
+			GPUBuffer::CreateBuffer(vk_ctx, buffer_size,
 				VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
 				VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
 				staging_buffer);
 
-			FillBufferWithData(vk_ctx->device, staging_buffer, vertices.data());
+			GPUBuffer::FillBufferWithData(vk_ctx->device, staging_buffer, vertices.data());
 
-			CreateBuffer(vk_ctx, buffer_size,
+			GPUBuffer::CreateBuffer(vk_ctx, buffer_size,
 				VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
 				//VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
 				VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
@@ -59,7 +59,7 @@ namespace Fluxon {
 
 			Resources::CopyBuffer(vk_ctx, cmd_pool, staging_buffer.buffer, mVertexBuffer.buffer, buffer_size);
 
-			DestoryBuffer(vk_ctx->device, staging_buffer);
+			GPUBuffer::DestoryBuffer(vk_ctx->device, staging_buffer);
 		}
 		void Mesh::CreateIndexBuffer(const VulkanContext* vk_ctx, VkCommandPool cmd_pool, std::vector<uint16_t>& indices)
 		{
@@ -68,14 +68,14 @@ namespace Fluxon {
 
 			GPUBuffer staging_buffer;
 
-			CreateBuffer(vk_ctx, buffer_size,
+			GPUBuffer::CreateBuffer(vk_ctx, buffer_size,
 				VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
 				VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
 				staging_buffer);
 
-			FillBufferWithData(vk_ctx->device, staging_buffer, indices.data());
+			GPUBuffer::FillBufferWithData(vk_ctx->device, staging_buffer, indices.data());
 
-			CreateBuffer(vk_ctx, buffer_size,
+			GPUBuffer::CreateBuffer(vk_ctx, buffer_size,
 				VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
 				//VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
 				VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
@@ -83,7 +83,7 @@ namespace Fluxon {
 
 			Resources::CopyBuffer(vk_ctx, cmd_pool, staging_buffer.buffer, mIndexBuffer.buffer, buffer_size);
 
-			DestoryBuffer(vk_ctx->device, staging_buffer);
+			GPUBuffer::DestoryBuffer(vk_ctx->device, staging_buffer);
 		}
 	} //#vulkan
 }//# Fluxon

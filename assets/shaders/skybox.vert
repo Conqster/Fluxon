@@ -11,6 +11,7 @@ layout(set = 1, binding = 0) uniform Camera
 {
 	mat4 view; 
 	mat4 proj;
+	mat4 lightMatrixHack;
 	vec3 position;
 };
 

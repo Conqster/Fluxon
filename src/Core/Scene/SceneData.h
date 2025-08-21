@@ -148,8 +148,27 @@ namespace Fluxon {
 	};
 
 
+	struct LightShadowData
+	{
+		float viewSize = 7.0f;
+		float near = 0.1f;
+		float far = 70.0f;
+
+
+		glm::vec3 sampleOrigin = glm::vec3(0.0f);
+		glm::vec3 sampleWorldUp = glm::vec3(0.0f, 1.0f, 0.0f);
+		float sampleShadowDistance = 54.0f;
+
+		float depthBiasConstantFactor = 1.75f; // Optional
+		float depthBiasClamp = 0.0f; // Optional
+		float depthBiasSlopeFactor = 1.25f; // Optional
+	};
+
 	class TransformComponent;
 	class SceneNode;
+	namespace Vulkan {
+		struct RenderTarget;
+	}
 	struct SceneResources
 	{
 		std::string* instantSceneName								= nullptr;
@@ -161,7 +180,18 @@ namespace Fluxon {
 		GPUStructures::DirectionalLight* directionalLight			= nullptr;
 		GPUStructures::Skybox* skybox								= nullptr;
 
-		Camera* camera												= nullptr;
+		EditorCamera* camera										= nullptr;
+
+		Vulkan::Resources::ImGui_Texture_Test* experiment_texture	= nullptr;
+		Vulkan::RenderTarget* shadowPassDepthRT						= nullptr;
+		Vulkan::RenderTarget* voxelDepthRT							= nullptr;
+
+
+		LightShadowData lightShadowData{};
+
+		GPUStructures::EmitterUBO* particleEmitter					= nullptr;
+
+		double currentFrameDT = 0.0f;
 	};
 
 }

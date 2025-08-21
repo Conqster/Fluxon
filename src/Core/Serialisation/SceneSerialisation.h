@@ -92,13 +92,13 @@ namespace Fluxon {
 	//	out << YAML::Key << "Main Camera";
 	//	out << YAML::convert<Camera>::encode(camera);;
 	//	//out << YAML::BeginMap;
-	//	//out << YAML::Key << "position" << camera.position;
+	//	//out << YAML::Key << "mPosition" << camera.mPosition;
 	//	//out << YAML::Key << "forward" << camera.forward;
 	//	//out << YAML::Key << "up" << camera.up;
-	//	//out << YAML::Key << "right" << camera.right;
-	//	//out << YAML::Key << "fov" << camera.fov;
-	//	//out << YAML::Key << "nearPlane" << camera.nearPlane;
-	//	//out << YAML::Key << "farPlane" << camera.farPlane;
+	//	//out << YAML::Key << "mRight" << camera.mRight;
+	//	//out << YAML::Key << "mFovY" << camera.mFovY;
+	//	//out << YAML::Key << "mNearZ" << camera.mNearZ;
+	//	//out << YAML::Key << "mFarZ" << camera.mFarZ;
 	//	//out << YAML::Key << "moveSpeed" << camera.moveSpeed;
 	//	//out << YAML::Key << "rotSpeed" << camera.rotSpeed;
 	//	//out << YAML::EndMap;

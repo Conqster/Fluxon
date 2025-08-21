@@ -9,6 +9,8 @@
 
 #include "Core/Scene/SceneNode.h"
 
+#include "Renderer/RenderTarget.h"
+
 namespace Fluxon {
 	namespace Editor {
 
@@ -72,7 +74,7 @@ namespace Fluxon {
 		static void ApplyEuler(glm::quat& curr_quat, glm::vec3 ui_euler)
 		{
 			glm::vec3 delta_euler = ui_euler - glm::degrees(glm::eulerAngles(curr_quat));
-			
+
 			glm::quat qx = glm::angleAxis(glm::radians(delta_euler.x), glm::vec3(1, 0, 0));
 			glm::quat qy = glm::angleAxis(glm::radians(delta_euler.y), glm::vec3(0, 1, 0));
 			glm::quat qz = glm::angleAxis(glm::radians(delta_euler.z), glm::vec3(0, 0, 1));
@@ -160,6 +162,7 @@ namespace Fluxon {
 				Model_Transform_Editor_Panel_UI(node->GetTransformComponent()->transform);
 				if (node->HasRenderableComponent())
 					RenderableComponentPanel(*node->GetRenderableComponent());
+				ImGui::Checkbox("Animate Obj", &node->mAnimateObj);
 
 				ImGui::Unindent(20.0f);
 				ImGui::PopID();
@@ -174,18 +177,77 @@ namespace Fluxon {
 			//ImGui::Checkbox("Mouse Cursor", &window_cursor_lock);
 			//ImGui::Spacing();
 
+			//ImGui::SeparatorText("Camera Properties");
+			//if (scene_resources.camera)
+			//{
+			//	auto cam_pos = (*scene_resources.camera).mPosition;
+			//	ImGui::Text("Position x: %f, y: %f, z: %f", cam_pos.x, cam_pos.y, cam_pos.z);
+			//	auto cam_forward = scene_resources.camera->mForward;
+			//	ImGui::Text("Forward x: %f, y: %f, z: %f", cam_forward.x, cam_forward.y, cam_forward.z);
+			//	ImGui::SliderFloat("Move Speed", &scene_resources.camera->moveSpeed, 0.01f, 10.0f);
+			//	ImGui::SliderFloat("Rot Speed", &scene_resources.camera->rotSpeed, 0.01f, 1.0f);
+			//	ImGui::DragFloat("Near", &scene_resources.camera->mNearZ, 0.1f, 0.01f, 50.0f, "%.1f");
+			//	ImGui::DragFloat("Far", &scene_resources.camera->mFarZ, 0.1f, 0.0f, 500.0f, "%.1f");
+			//	if(scene_resources.camera->mType == ECameraType::Perspective)
+			//		ImGui::SliderFloat("FOV", &scene_resources.camera->mFovY, 0.0f, 179.0f, "%.1f");
+			//	else
+			//		ImGui::SliderFloat("Scale", &scene_resources.camera->mScale, 0.0f, 179.0f, "%.1f");
+			//	//ImGui::BeginChild("##mesh_type", ImVec2(preview_panel_size.x * 0.75f, preview_panel_size.y * 0.5f));
+			//	ImGui::BeginChild("##mesh_type");
+			//	//static auto mesh_type = GetCameraTypeAsChar();
+			//	const char* mesh_type[] = { "Perspective", "Orthographic" };
+			//	int cam_type = (int)scene_resources.camera->mType;
+			//	//if(cam_type)
+			//	if(ImGui::Combo("Preview Mesh", &cam_type, mesh_type, 2))
+			//		scene_resources.camera->mType = static_cast<ECameraType>(cam_type);
+
+			//	ImGui::EndChild();
+			//}
+			//else
+			//	ImGui::Text("No vaild Camera !!!!!!");
+
+
 			ImGui::SeparatorText("Camera Properties");
 			if (scene_resources.camera)
 			{
-				auto cam_pos = (*scene_resources.camera).position;
+				auto cam_pos = (*scene_resources.camera).GetPosition();
 				ImGui::Text("Position x: %f, y: %f, z: %f", cam_pos.x, cam_pos.y, cam_pos.z);
-				auto cam_forward = scene_resources.camera->forward;
+				auto cam_forward = scene_resources.camera->GetForward();
 				ImGui::Text("Forward x: %f, y: %f, z: %f", cam_forward.x, cam_forward.y, cam_forward.z);
-				ImGui::SliderFloat("Move Speed", &scene_resources.camera->moveSpeed, 0.01f, 10.0f);
-				ImGui::SliderFloat("Rot Speed", &scene_resources.camera->rotSpeed, 0.01f, 1.0f);
-				ImGui::SliderFloat("FOV", &scene_resources.camera->fov, 0.0f, 179.0f, "%.1f");
-				ImGui::DragFloat("Near", &scene_resources.camera->nearPlane, 0.1f, 0.01f, 50.0f, "%.1f");
-				ImGui::DragFloat("Far", &scene_resources.camera->farPlane, 0.1f, 0.0f, 500.0f, "%.1f");
+				float v = scene_resources.camera->GetMoveSpeed();
+				if (ImGui::SliderFloat("Move Speed", &v, 0.01f, 10.0f))
+					scene_resources.camera->SetMoveSpeed(v);
+				v = scene_resources.camera->GetRotSpeed();
+				if (ImGui::SliderFloat("Rot Speed", &v, 0.01f, 1.0f))
+					scene_resources.camera->SetRotSpeed(v);
+				v = scene_resources.camera->GetNearZ();
+				if (ImGui::DragFloat("Near", &v, 0.1f, 0.01f, 50.0f, "%.1f"))
+					scene_resources.camera->SetNearZ(v);
+				v = scene_resources.camera->GetFarZ();
+				if (ImGui::DragFloat("Far", &v, 0.1f, 0.0f, 500.0f, "%.1f"))
+					scene_resources.camera->SetFarZ(v);
+				if (scene_resources.camera->IsPerspective())
+				{
+					v = scene_resources.camera->GetFovY();
+					if(ImGui::SliderFloat("FOV", &v, 0.0f, 179.0f, "%.1f"))
+						scene_resources.camera->SetFovY(v);
+				}
+				else
+				{
+					v = scene_resources.camera->GetScale();
+					if (ImGui::SliderFloat("Scale", &v, 0.0f, 179.0f, "%.1f"))
+						scene_resources.camera->SetScale(v);
+				}
+				//ImGui::BeginChild("##mesh_type", ImVec2(preview_panel_size.x * 0.75f, preview_panel_size.y * 0.5f));
+				ImGui::BeginChild("##mesh_type");
+				//static auto mesh_type = GetCameraTypeAsChar();
+				const char* mesh_type[] = { "Perspective", "Orthographic" };
+				int cam_type = (int)scene_resources.camera->GetType();
+				//if(cam_type)
+				if (ImGui::Combo("Preview Mesh", &cam_type, mesh_type, 2))
+					scene_resources.camera->SetType(static_cast<ECameraType>(cam_type));
+
+				ImGui::EndChild();
 			}
 			else
 				ImGui::Text("No vaild Camera !!!!!!");
@@ -203,6 +265,9 @@ namespace Fluxon {
 				ImGui::DragFloat3("light direction", &dir_light.direction[0], 0.1f, -2.0f, 2.0f);
 				ImGui::ColorEdit3("light colour", &dir_light.colour[0]);
 				ImGui::SliderInt("model shinness", &dir_light.shinness, 1, 128);
+
+				Colour32 c;
+
 			}
 
 			if (scene_resources.skybox)
@@ -255,7 +320,7 @@ namespace Fluxon {
 			//	Model_Transform_Editor_Panel_UI(model->transform);
 			//	ImGui::PopID();
 			//}
-
+			ImGui::Text("Frame Delta time: %f", scene_resources.currentFrameDT);
 			if (ImGui::BeginTabBar("MainTabBar"))
 			{
 				if (ImGui::BeginTabItem("Scene Editor"))
@@ -304,6 +369,50 @@ namespace Fluxon {
 					//Funcs::MyInputTextMultiline("##MyStr", &my_str, ImVec2(-FLT_MIN, ImGui::GetTextLineHeight() * 16));
 					Flux_ImGui_Util::StringInputText("##MyStr", &my_str);
 					ImGui::Text("Data: %p\nSize: %d\nCapacity: %d", (void*)my_str.data()[0], my_str.size(), my_str.capacity());
+
+					ImGui::SeparatorText("Light Shadow Data");
+					ImGui::SliderFloat("View size", &scene_resources.lightShadowData.viewSize, 0.0f, 100.0f);
+					ImGui::SliderFloat("View near", &scene_resources.lightShadowData.near, 0.1f, 50.0f);
+					ImGui::SliderFloat("View far", &scene_resources.lightShadowData.far, 1.0f, 500.0f);
+
+					ImGui::DragFloat3("Sample Origin", &scene_resources.lightShadowData.sampleOrigin[0], 0.1f);
+					ImGui::DragFloat3("Sample World Up", &scene_resources.lightShadowData.sampleWorldUp[0], 0.1f);
+					ImGui::SliderFloat("Sample Offste", &scene_resources.lightShadowData.sampleShadowDistance, 1.0f, 500.0f);
+
+					ImGui::SliderFloat("depthBiasConstantFactor", &scene_resources.lightShadowData.depthBiasConstantFactor, 1.0f, 10.0f);
+					ImGui::SliderFloat("depthBiasClamp", &scene_resources.lightShadowData.depthBiasClamp, 1.0f, 10.0f);
+					ImGui::SliderFloat("depthBiasSlopeFactor", &scene_resources.lightShadowData.depthBiasSlopeFactor, 1.0f, 10.0f);
+
+					ImGui::EndTabItem();
+				}
+
+				if (ImGui::BeginTabItem("Experimental Particle"))
+				{
+					if (scene_resources.particleEmitter)
+					{
+						ImGui::SeparatorText("Emitter Transform");
+						Model_Transform_Editor_Panel_UI(scene_resources.particleEmitter->worldTransform);
+						ImGui::SeparatorText("Bounds");
+						ImGui::Indent(20.0f);
+						ImGui::DragFloat3("Min", &scene_resources.particleEmitter->boundsMin[0], 0.1f);
+						ImGui::DragFloat3("Max", &scene_resources.particleEmitter->boundsMax[0], 0.1f);
+						ImGui::Unindent(20.0f);
+						ImGui::SliderFloat("Bound Collision Impluse", &scene_resources.particleEmitter->boundsCollisionImpluse, -2.0f, 2.0f);
+						ImGui::SeparatorText("Emitter");
+						ImGui::Indent(20.0f);
+						ImGui::Text("Pending Spawn count, %d", scene_resources.particleEmitter->spawnCount);
+						static int require_count = scene_resources.particleEmitter->spawnCount;
+						ImGui::SliderInt("Req Spawn Count", &require_count, 0, 40);
+						ImGui::SeparatorText("Particle Properties");
+						ImGui::DragFloat("Particle Lifetime", &scene_resources.particleEmitter->particleLifeTime, 0.1f);
+						ImGui::ColorEdit3("Start Colour", &scene_resources.particleEmitter->particleStartColour[0]);
+						ImGui::ColorEdit3("End Colour", &scene_resources.particleEmitter->particleEndColour[0]);
+						ImGui::SliderFloat("Particle Mass", &scene_resources.particleEmitter->particleMass, 0.0f, 10.0f);
+						ImGui::SliderFloat("Particle Spawn Velocity", &scene_resources.particleEmitter->startSpeed, -20.0f, 20.0f);
+						if(ImGui::Button("Initiate Spawn Req"))
+							scene_resources.particleEmitter->spawnCount = require_count;
+						ImGui::Unindent(20.0f);
+					}
 					ImGui::EndTabItem();
 				}
 
@@ -311,9 +420,31 @@ namespace Fluxon {
 
 				ImGui::EndTabBar();
 			}
+			ImGui::End();
 
-			
 
+			ImGui::Begin("Vulkan Texture Test");
+			if (scene_resources.experiment_texture != nullptr)
+			{
+				ImGui::Text("pointer = %p", scene_resources.experiment_texture->desc);
+				ImGui::Text("size = %d x %d", scene_resources.experiment_texture->width, scene_resources.experiment_texture->height);
+				ImGui::Image((ImTextureID)scene_resources.experiment_texture->desc, ImVec2(scene_resources.experiment_texture->width, scene_resources.experiment_texture->height));
+			}
+
+			if (scene_resources.shadowPassDepthRT != nullptr && scene_resources.shadowPassDepthRT->imguiDescSet != nullptr)
+			{
+				auto& shadowRT = scene_resources.shadowPassDepthRT;
+				static float scale = 0.1f;
+				ImGui::DragFloat("Scale", &scale, 0.01f, 0.01f, 1.0f, "%.2f");
+				ImGui::Image((ImTextureID)shadowRT->imguiDescSet, ImVec2(shadowRT->extent.width * scale, shadowRT->extent.height * scale));
+			}
+			if (scene_resources.voxelDepthRT != nullptr && scene_resources.voxelDepthRT->imguiDescSet != nullptr)
+			{
+				auto& voxelRT = scene_resources.voxelDepthRT;
+				static float scale2 = 1.51f;
+				ImGui::DragFloat("Scale2", &scale2, 0.01f, 0.01f, 1.0f, "%.2f");
+				ImGui::Image((ImTextureID)voxelRT->imguiDescSet, ImVec2(voxelRT->extent.width * scale2, voxelRT->extent.height * scale2));
+			}
 			ImGui::End();
 		}
 

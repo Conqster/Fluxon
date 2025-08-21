@@ -38,7 +38,6 @@ namespace Fluxon {
 
 
 
-
 			//SUBPASSESS & ATTACHMENT REFERENCES
 			VkAttachmentReference colour_attachment_ref{};
 			colour_attachment_ref.attachment = 0; //Our array consists of a single VkAttachmentDescription,->colour_attachment

@@ -55,8 +55,10 @@ namespace Fluxon {
 			uint32_t device_count = 0;
 			vkEnumeratePhysicalDevices(vk_ctx->instance, &device_count, nullptr);
 
-			if (device_count == 0)
-				throw std::runtime_error("Failed to find GPUs with Vulkan supports!!!!!!");
+			//if (device_count == 0)
+			//	throw std::runtime_error("Failed to find GPUs with Vulkan supports!!!!!!");
+			FLUX_DEBUG_ASSERT_CRITICAL(device_count != 0, "Failed to find GPUs with Vulkan supports!!!!!!");
+
 
 			std::vector<VkPhysicalDevice> physical_devices(device_count);
 			vkEnumeratePhysicalDevices(vk_ctx->instance, &device_count, physical_devices.data());
@@ -82,35 +84,43 @@ namespace Fluxon {
 				}
 			}
 
-			if (optimal_score == 0 && optimal_device == VK_NULL_HANDLE)
-				throw std::runtime_error("No suitable GPU found!!!!!!");
+			//if (optimal_score == 0 && optimal_device == VK_NULL_HANDLE)
+			//	throw std::runtime_error("No suitable GPU found!!!!!!");
+
+			FLUX_DEBUG_ASSERT_CRITICAL(optimal_score != 0 || optimal_device != VK_NULL_HANDLE, "No suitable GPU found!!!!!!");
 
 			vk_ctx->physicalDevice = optimal_device;
 			//TODO (Conqster): maybe later cache optimal device properties
 		}
 
-		VulkanContext CreateVulkanContext(const Platform::Window* window, bool enable_validation_layers, PFN_vkDebugUtilsMessengerCallbackEXT debug_callback)
+		VulkanContext VulkanContext::CreateVulkanContext(Platform::Window* window, bool enable_validation_layers, PFN_vkDebugUtilsMessengerCallbackEXT debug_callback)
 		{
 			//check validation layer is required and supported 
 			if (enable_validation_layers && !Utils::CheckValidationLayerSupport(mValidationLayers))
 				throw std::runtime_error("\n\nVaildation layers requested, but not available!!!");
 
 			VulkanContext vk_ctx;
-			CreateVkInstance(&vk_ctx, window, enable_validation_layers, debug_callback);
+			vk_ctx.pMainPlatformWindow = window;
+			
+
+			vk_ctx.CreateVkInstance(window, enable_validation_layers, debug_callback);
 
 			if (enable_validation_layers)
-				InitDebugMessenger(&vk_ctx, debug_callback);
+				vk_ctx.InitDebugMessenger(debug_callback);
 
-			CreateSurface(&vk_ctx, window);
+			vk_ctx.CreateSurface(window);
 
 			EnumerateOptimalPhysicalDeviceToUse(&vk_ctx);
 
-			CreateLogicalDevice(&vk_ctx);
+			vk_ctx.CreateLogicalDevice();
 
+			vk_ctx.dummyDescSetLayout = Utils::CreateDummyDescriptorSetLayout(&vk_ctx);
 			return vk_ctx;
 		}
 
-		void CreateVkInstance(VulkanContext* vk_ctx, const Platform::Window* window, bool enable_validation_layers, PFN_vkDebugUtilsMessengerCallbackEXT debug_callback)
+	
+
+		void VulkanContext::CreateVkInstance(const Platform::Window* window, bool enable_validation_layers, PFN_vkDebugUtilsMessengerCallbackEXT debug_callback)
 		{
 			VkApplicationInfo app_info{};
 			app_info.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
@@ -143,20 +153,20 @@ namespace Fluxon {
 				create_info.pNext = nullptr;
 			}
 
-			if (vkCreateInstance(&create_info, nullptr, &vk_ctx->instance) != VK_SUCCESS)
-				throw std::runtime_error("Failed to create vulkan instance!!!!!!!");
+			FLUX_VK_ASSERT_SUCCESS(vkCreateInstance(&create_info, nullptr, &instance), "Failed to create vulkan instance!!!!!!!");
 		}
 
-		void CreateSurface(VulkanContext* vk_ctx, const Platform::Window* window)
+		void VulkanContext::CreateSurface(const Platform::Window* window)
 		{
 			//OR
-			if (glfwCreateWindowSurface(vk_ctx->instance, window->glfwWindowHandle, nullptr, &vk_ctx->surface) != VK_SUCCESS)
-				throw std::runtime_error("Failed to create window surface!!!!!");
+
+
+			FLUX_VK_ASSERT_SUCCESS(glfwCreateWindowSurface(instance, window->glfwWindowHandle, nullptr, &surface), "Failed to create window surface!!!!!");
 		}
 
-		void CreateLogicalDevice(VulkanContext* vk_ctx)
+		void VulkanContext::CreateLogicalDevice()
 		{
-			QueueFamilyIndices queue_indices = Utils::FindDeviceQueueFamilies(*vk_ctx);
+			QueueFamilyIndices queue_indices = Utils::FindDeviceQueueFamilies(*this);
 
 			std::vector<VkDeviceQueueCreateInfo> queue_create_infos;
 
@@ -164,7 +174,7 @@ namespace Fluxon {
 			// TODO (Conqster): This "std::set" might hvae worked because graphic & present family has the same value
 			std::set<uint32_t> unique_queue_families = {
 				//std::vector<uint32_t> unique_queue_families = {
-					queue_indices.graphicsFamily.value(),
+					queue_indices.graphicsAndComputeFamily.value(),
 					queue_indices.presentFamily.value()
 			};
 
@@ -176,13 +186,36 @@ namespace Fluxon {
 				//queue_create_info.queueFamilyIndex = unique_queue_families[i];
 				// TODO (Conqster): This "queue_indices.graphicsFamily.value()" might hvae worked because 
 				//graphics & present has the same index;
-				queue_create_info.queueFamilyIndex = queue_indices.graphicsFamily.value();
+				queue_create_info.queueFamilyIndex = queue_indices.graphicsAndComputeFamily.value();
 				queue_create_info.queueCount = 1;
 				queue_create_info.pQueuePriorities = &queue_priority;
 				queue_create_infos.push_back(queue_create_info);
 			}
 
 
+			//<-- required for VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL 
+			// because is not part of core for vulkan below Vulkan 1.2
+#define SUPPORT_MORE_FEATURE_SEPARATE_DEPTH 1
+
+#if SUPPORT_MORE_FEATURE_SEPARATE_DEPTH
+			VkPhysicalDeviceFeatures2 device_feature2{};
+			device_feature2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
+			device_feature2.features.samplerAnisotropy = VK_TRUE;
+			VkPhysicalDeviceSeparateDepthStencilLayoutsFeatures separate_layouts{};
+			separate_layouts.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SEPARATE_DEPTH_STENCIL_LAYOUTS_FEATURES;
+			separate_layouts.separateDepthStencilLayouts = VK_TRUE;
+			device_feature2.pNext = &separate_layouts;
+
+			VkDeviceCreateInfo device_create_info{};
+			device_create_info.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+			device_create_info.queueCreateInfoCount = static_cast<uint32_t>(queue_create_infos.size());
+			device_create_info.pQueueCreateInfos = queue_create_infos.data();
+			//device_create_info.pEnabledFeatures = &device_features;
+			device_create_info.pNext = &device_feature2;
+			device_create_info.enabledExtensionCount = static_cast<uint32_t>(mDeviceExtensions.size());
+			device_create_info.ppEnabledExtensionNames = mDeviceExtensions.data();
+
+#else
 
 			//FEATURES for devices like geomtry/tessellation shader support etc
 			VkPhysicalDeviceFeatures device_features{};
@@ -193,9 +226,12 @@ namespace Fluxon {
 			device_create_info.queueCreateInfoCount = static_cast<uint32_t>(queue_create_infos.size());
 			device_create_info.pQueueCreateInfos = queue_create_infos.data();
 			device_create_info.pEnabledFeatures = &device_features;
-
 			device_create_info.enabledExtensionCount = static_cast<uint32_t>(mDeviceExtensions.size());
 			device_create_info.ppEnabledExtensionNames = mDeviceExtensions.data();
+
+#endif // SUPPORT_MORE_FEATURE_SEPARATE_DEPTH
+
+
 
 			////Below is not ncessary as previous Vulkan implementation made distinction btw 
 			////vulkan instance and device specific valiadation layers but this is no longer the case
@@ -205,40 +241,45 @@ namespace Fluxon {
 			//	device_create_info.ppEnabledLayerNames = mValidationLayers.data();
 			//}
 
-			if (vkCreateDevice(vk_ctx->physicalDevice, &device_create_info, nullptr, &vk_ctx->device) != VK_SUCCESS)
-				throw std::runtime_error("Failed to create logical vk_ctx!!!!!!!");
 
-			vkGetDeviceQueue(vk_ctx->device, queue_indices.graphicsFamily.value(), 0, &vk_ctx->graphicsQueue);
-			vkGetDeviceQueue(vk_ctx->device, queue_indices.presentFamily.value(), 0, &vk_ctx->presentQueue);
+			FLUX_VK_ASSERT_SUCCESS(vkCreateDevice(physicalDevice, &device_create_info, nullptr, &device), "Failed to create logical vk_ctx!!!!!!!");
+
+
+			vkGetDeviceQueue(device, queue_indices.graphicsAndComputeFamily.value(), 0, &graphicsQueue);
+			vkGetDeviceQueue(device, queue_indices.graphicsAndComputeFamily.value(), 0, &computeQueue);
+			vkGetDeviceQueue(device, queue_indices.presentFamily.value(), 0, &presentQueue);
 		}
 
-		void DestroyVulkanContext(VulkanContext* vk_ctx, bool has_debugger)
+
+		void VulkanContext::DestroyVulkanContext(bool has_debugger)
 		{
 			if (has_debugger)
 			{
-				auto func = (PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(vk_ctx->instance, "vkDestroyDebugUtilsMessengerEXT");
+				auto func = (PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance, "vkDestroyDebugUtilsMessengerEXT");
 				if (func != nullptr)
-					func(vk_ctx->instance, vk_ctx->debugMessager, nullptr);
+					func(instance, debugMessager, nullptr);
 			}
-			vkDestroyDevice(vk_ctx->device, nullptr);
-			vkDestroySurfaceKHR(vk_ctx->instance, vk_ctx->surface, nullptr);
-			vkDestroyInstance(vk_ctx->instance, nullptr);
+
+			if (dummyDescSetLayout != VK_NULL_HANDLE)
+				vkDestroyDescriptorSetLayout(device, dummyDescSetLayout, nullptr);
+
+			vkDestroyDevice(device, nullptr);
+			vkDestroySurfaceKHR(instance, surface, nullptr);
+			vkDestroyInstance(instance, nullptr);
 		}
 
-
-		void InitDebugMessenger(VulkanContext* vk_ctx, PFN_vkDebugUtilsMessengerCallbackEXT debug_callback)
+		void VulkanContext::InitDebugMessenger(PFN_vkDebugUtilsMessengerCallbackEXT debug_callback)
 		{
 			VkDebugUtilsMessengerCreateInfoEXT debug_utils_create_info{};
 			Utils::PopulateDebugMessengerCreateInfo(debug_utils_create_info, debug_callback);
 
 
-			auto vk_debug_func = ((PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(vk_ctx->instance, "vkCreateDebugUtilsMessengerEXT"));
-			//TODO (Conqseter): Later have a better asserting & logging system
-			if (vk_debug_func == nullptr)
-				throw std::runtime_error("Failed to load vkCreateDebugUtilsMessengerEXT!!!");
+			auto vk_debug_func = ((PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT"));
+			
 
-			if (vk_debug_func(vk_ctx->instance, &debug_utils_create_info, nullptr, &vk_ctx->debugMessager) != VK_SUCCESS)
-				throw std::runtime_error("failed to set up debug messenger!!!!");
+			FLUX_DEBUG_ASSERT_CRITICAL(vk_debug_func != nullptr, "Failed to load vkCreateDebugUtilsMessengerEXT!!!");
+
+			FLUX_VK_ASSERT_SUCCESS(vk_debug_func(instance, &debug_utils_create_info, nullptr, &debugMessager), "failed to set up debug messenger!!!!");
 		}
 
 	} //#Vulkan

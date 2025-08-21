@@ -9,7 +9,6 @@
 namespace Fluxon {
 	namespace Vulkan {
 
-		const int MAX_FRAMES_IN_FLIGHT = 2;
 #define IMGUI_IN_USE 1
 
 		struct DescriptorSetSpecification
@@ -169,6 +168,12 @@ namespace Fluxon {
 			//
 			VkFence inFlight;
 
+			//compute 
+			VkCommandBuffer computeCommandBuffer;
+			//compute sync object
+			VkSemaphore computeCompleteSemaphore;
+			VkFence computeInFlight;
+
 
 			//NOTE(Conqster): Its nice for each frame to have thier own resource 
 			//but for expansion later its best to have a pool of resource that has semaphore&/ fences 
@@ -259,11 +264,11 @@ namespace Fluxon {
 
 		inline void CreateAndAppendFrameResourceUBO(const VulkanContext* vk_ctx, GPUBuffer& ubo, FrameResources& frame_resource, UniformBufferSpecification ubo_spec) {
 
-			CreateBuffer(vk_ctx, static_cast<VkDeviceSize>(ubo_spec.requiredSize), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+			GPUBuffer::CreateBuffer(vk_ctx, static_cast<VkDeviceSize>(ubo_spec.requiredSize), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
 				VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
 				ubo);
 
-			MapBufferMemory(vk_ctx->device, ubo);
+			GPUBuffer::MapBufferMemory(vk_ctx->device, ubo);
 
 			frame_resource.AppendDescriptorBinding(Vulkan::DescriptorBinding::MakeUniformBuffer(ubo_spec.set, ubo_spec.binding, ubo));
 		}
@@ -313,12 +318,12 @@ namespace Fluxon {
 				auto& ubo = frame.globalCameraUniformBuffer;
 				VkDeviceSize buffer_size = sizeof(GPUStructures::MVP_UniformBufferObject);
 
-				CreateBuffer(vk_ctx, buffer_size, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+				GPUBuffer::CreateBuffer(vk_ctx, buffer_size, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
 					VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
 					ubo);
 
 				//MapGPUBufferMemory(device->device, uniform_buffers[i], &uniform_buff_maps[i]);
-				MapBufferMemory(vk_ctx->device, ubo);
+				GPUBuffer::MapBufferMemory(vk_ctx->device, ubo);
 
 				frame.AppendDescriptorBinding(Vulkan::DescriptorBinding::MakeUniformBuffer(0, 0, ubo));
 			}
@@ -331,12 +336,12 @@ namespace Fluxon {
 				auto& ubo = frame.globalDirectionalLightUniformBuffer;
 				VkDeviceSize buffer_size = sizeof(GPUStructures::DirectionalLight);
 
-				CreateBuffer(vk_ctx, buffer_size, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+				GPUBuffer::CreateBuffer(vk_ctx, buffer_size, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
 					VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
 					ubo);
 
 				//MapGPUBufferMemory(device->device, uniform_buffers[i], &uniform_buff_maps[i]);
-				MapBufferMemory(vk_ctx->device, ubo);
+				GPUBuffer::MapBufferMemory(vk_ctx->device, ubo);
 
 				frame.AppendDescriptorBinding(Vulkan::DescriptorBinding::MakeUniformBuffer(0, 2, ubo));
 			}
@@ -352,10 +357,21 @@ namespace Fluxon {
 			VkCommandPoolCreateInfo command_pool_create_info{};
 			command_pool_create_info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
 			command_pool_create_info.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
-			command_pool_create_info.queueFamilyIndex = queue_family_indices.graphicsFamily.value();
+			command_pool_create_info.queueFamilyIndex = queue_family_indices.graphicsAndComputeFamily.value();
 
-			for (auto& [command_pool, command_buff, image_avail, in_flight_fence, descriptor_pool, descriptor_set, pending_desc_bind, uniformbuffers, uniformbuffers1, uniformbuffers2] : frame_data_objs)
+			//for (auto& [command_pool, command_buff, image_avail, in_flight_fence, descriptor_pool, descriptor_set, pending_desc_bind, uniformbuffers, uniformbuffers1, uniformbuffers2] : frame_data_objs)
+			for (auto& frame_reso : frame_data_objs)
 			{
+				VkCommandPool& command_pool = frame_reso.commandPool;
+				VkCommandBuffer& command_buff = frame_reso.commandBuffer;
+				VkCommandBuffer& compute_cmd_buff = frame_reso.computeCommandBuffer;
+
+				VkFence& in_flight_fence = frame_reso.inFlight;
+				VkSemaphore& image_avail = frame_reso.imageAvailable;
+
+				VkFence& compute_in_flight_fence = frame_reso.computeInFlight;
+				VkSemaphore& compute_complete_semaphore = frame_reso.computeCompleteSemaphore;
+
 				if (vkCreateCommandPool(vk_ctx->device, &command_pool_create_info, nullptr, &command_pool) != VK_SUCCESS)
 					throw std::runtime_error("Failed to create command pools!!!!");
 
@@ -371,6 +387,9 @@ namespace Fluxon {
 				if (vkAllocateCommandBuffers(vk_ctx->device, &allocation_info, &command_buff) != VK_SUCCESS)
 					throw std::runtime_error("Failed to allocate command buffers!!!!!!");
 
+				if (vkAllocateCommandBuffers(vk_ctx->device, &allocation_info, &compute_cmd_buff) != VK_SUCCESS)
+					throw std::runtime_error("Failed to allocate command buffers!!!!!!");
+
 
 				VkSemaphoreCreateInfo semaphore_create_info{};
 				semaphore_create_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
@@ -381,6 +400,10 @@ namespace Fluxon {
 
 				if (vkCreateSemaphore(vk_ctx->device, &semaphore_create_info, nullptr, &image_avail) != VK_SUCCESS ||
 					vkCreateFence(vk_ctx->device, &fence_create_info, nullptr, &in_flight_fence) != VK_SUCCESS)
+					throw std::runtime_error("Failed to create semaphore!!!!!!");
+
+				if (vkCreateSemaphore(vk_ctx->device, &semaphore_create_info, nullptr, &compute_complete_semaphore) != VK_SUCCESS ||
+					vkCreateFence(vk_ctx->device, &fence_create_info, nullptr, &compute_in_flight_fence) != VK_SUCCESS)
 					throw std::runtime_error("Failed to create semaphore!!!!!!");
 
 				//create descriptor pool 
@@ -473,20 +496,40 @@ namespace Fluxon {
 		inline void DestroyFrameObjects(const VulkanContext* vk_ctx, std::vector<FrameResources> frame_data_objs)
 		{
 
-			for (auto& [command_pool, command_buff, image_avail, in_flight_fence, descriptor_pool, descriptor_set, pending_desc_bind, uniform_buffer, uniform_buffer1, uniform_buffer2] : frame_data_objs)
+			//for (auto& [command_pool, command_buff, image_avail, in_flight_fence, descriptor_pool, descriptor_set, pending_desc_bind, uniform_buffer, uniform_buffer1, uniform_buffer2] : frame_data_objs)
+			for (auto& frame_reso : frame_data_objs)
 			{
+				VkFence& in_flight_fence = frame_reso.inFlight;
+				VkSemaphore& image_avail = frame_reso.imageAvailable;
+
+				VkFence& compute_in_flight_fence = frame_reso.computeInFlight;
+				VkSemaphore& compute_complete_semaphore = frame_reso.computeCompleteSemaphore;
+
+				VkCommandPool& command_pool = frame_reso.commandPool;
+
+				VkDescriptorPool& descriptor_pool = frame_reso.globalDescriptorPool;
+
+				GPUBuffer& ubo0 = frame_reso.globalCameraUniformBuffer;
+				GPUBuffer& ubo1 = frame_reso.globalDirectionalLightUniformBuffer;
+				GPUBuffer& ubo2 = frame_reso.globalSkyboxUniformBuffer;
+
+
+
 				auto& device = vk_ctx->device;
 				vkDestroySemaphore(device, image_avail, nullptr);
 				vkDestroyFence(device, in_flight_fence, nullptr);
+
+				vkDestroyFence(device, compute_in_flight_fence, nullptr);
+				vkDestroySemaphore(device, compute_complete_semaphore, nullptr);
 
 				vkDestroyCommandPool(device, command_pool, nullptr);
 
 				//vkFreeDescriptorSets(mDevice.device, mDescriptorPool, static_cast<uint32_t>(mDescriptorSets.size()), mDescriptorSets.data());
 				vkDestroyDescriptorPool(device, descriptor_pool, nullptr);
 
-				Vulkan::DestoryBuffer(vk_ctx->device, uniform_buffer);
-				Vulkan::DestoryBuffer(vk_ctx->device, uniform_buffer1);
-				Vulkan::DestoryBuffer(vk_ctx->device, uniform_buffer2);
+				GPUBuffer::DestoryBuffer(vk_ctx->device, ubo0);
+				GPUBuffer::DestoryBuffer(vk_ctx->device, ubo1);
+				GPUBuffer::DestoryBuffer(vk_ctx->device, ubo2);
 			}
 		}
 
@@ -577,12 +620,12 @@ namespace Fluxon {
 			for (size_t i = 0; i < frame_data.size(); i++)
 			{
 
-				CreateBuffer(vk_ctx, buffer_size, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+				GPUBuffer::CreateBuffer(vk_ctx, buffer_size, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
 					VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
 					uniform_buffers[i]);
 
 				//MapGPUBufferMemory(device->device, uniform_buffers[i], &uniform_buff_maps[i]);
-				MapBufferMemory(vk_ctx->device, uniform_buffers[i]);
+				GPUBuffer::MapBufferMemory(vk_ctx->device, uniform_buffers[i]);
 
 				frame_data[i].AppendDescriptorBinding(Vulkan::DescriptorBinding::MakeUniformBuffer(0, 0, uniform_buffers[i]));
 			}

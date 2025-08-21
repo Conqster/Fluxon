@@ -38,7 +38,7 @@ namespace Fluxon {
 
 			//TODO(Conqster) : This class should not manage window nor camera
 			Platform::Window* mWindow = nullptr;
-			Camera* mCamera = nullptr;
+			EditorCamera* mCamera = nullptr;
 
 
 			//std::vector<ForwardRenderPass> mPasses;
@@ -79,7 +79,7 @@ namespace Fluxon {
 
 
 		public:
-			void Init(Platform::Window& window, Camera* app_cam_ref = nullptr);
+			void Init(Platform::Window& window, EditorCamera* app_cam_ref = nullptr);
 
 			void SetIMGUI(UI_System& ui) {
 				mImGuiUI = ui;
@@ -104,7 +104,7 @@ namespace Fluxon {
 			void CreateTestSceneData(const Vulkan::VulkanContext* vk_ctx, VkCommandPool cmd_pool);
 
 
-			void DrawScene(Camera* camera, glm::vec3 translate_model, glm::vec3 rotate_axis);
+			void DrawScene(EditorCamera* camera, glm::vec3 translate_model, glm::vec3 rotate_axis);
 			void UpdateGlobalFrameDataUBO(FrameResources& frame_resources, glm::vec3 model_pos, glm::vec3 rotate_axis, float win_width, float win_height);
 			//void RecordRenderPass(VkCommandBuffer cmd_buff, ForwardRenderPass& pass, const FrameResources& frame_resources, uint32_t img_idx, VkExtent2D render_area_extent, UI_System* ui_in_use = nullptr);
 

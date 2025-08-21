@@ -4,11 +4,13 @@
 #include "VulkanUtilities.h"
 #include "VulkanContext.h"
 
+#include "Resources.h"
+
 
 namespace Fluxon {
 	namespace Vulkan {
 
-		void CreateBuffer(const VulkanContext* vk_ctx, VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, GPUBuffer& gpu_buffer)
+		void GPUBuffer::CreateBuffer(const VulkanContext* vk_ctx, VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, GPUBuffer& gpu_buffer)
 		{
 			if (gpu_buffer.size == 0)
 				gpu_buffer.size = size;
@@ -47,7 +49,7 @@ namespace Fluxon {
 			vkBindBufferMemory(vk_ctx->device, gpu_buffer.buffer, gpu_buffer.memory, 0);
 		}
 
-		bool MapBufferMemory(VkDevice device, GPUBuffer& gpu_buffer)
+		bool GPUBuffer::MapBufferMemory(VkDevice device, GPUBuffer& gpu_buffer)
 		{
 			if (gpu_buffer.size == 0 || gpu_buffer.buffer == VK_NULL_HANDLE || gpu_buffer.memory == VK_NULL_HANDLE)
 				throw std::runtime_error("[GPU BUFFER]{MAPMEMEMORY}: buffer might be empty or was not allocated!!!!");
@@ -57,7 +59,7 @@ namespace Fluxon {
 			return true;
 		}
 
-		bool MapGPUBufferMemory(VkDevice device, const GPUBuffer& gpu_buffer, void** ppdata_map)
+		bool GPUBuffer::MapGPUBufferMemory(VkDevice device, const GPUBuffer& gpu_buffer, void** ppdata_map)
 		{
 			if (gpu_buffer.size == 0 || gpu_buffer.buffer == VK_NULL_HANDLE || gpu_buffer.memory == VK_NULL_HANDLE)
 				throw std::runtime_error("[GPU BUFFER]{MAPMEMEMORY}: buffer might be empty or was not allocated!!!!");
@@ -67,15 +69,21 @@ namespace Fluxon {
 			return true;
 		}
 
-		void CopyToMappedMemory(GPUBuffer& gpu_buffer, const void* pdata, uint32_t size)
+		void GPUBuffer::CopyToMappedMemory(GPUBuffer& gpu_buffer, const void* pdata, uint32_t size)
 		{
-			if (gpu_buffer.mapped == nullptr)
-				throw std::runtime_error("[GPU BUFFER]{MAPPED MEMEORY}: GPU buffer is not mapped, trying to write into unmapped memory!!!!");
-
+			FLUX_DEBUG_ASSERT_CRITICAL(gpu_buffer.mapped != nullptr, "[GPU BUFFER]{MAPPED MEMEORY}: GPU buffer is not mapped, trying to write into unmapped memory!!!!");
 			memcpy(gpu_buffer.mapped, pdata, size);
 		}
 
-		void FillBufferWithData(VkDevice device, const GPUBuffer& gpu_buffer, void* pdata)
+		template<typename T>
+		void GPUBuffer::DirectWriteToMappedMemory(const T& data)
+		{
+			FLUX_DEBUG_ASSERT_CRITICAL(mapped != nullptr, "[GPU BUFFER]{MAPPED MEMEORY}: GPU buffer is not mapped, trying to write into unmapped memory!!!!");
+			auto* dst = reinterpret_cast<T*>(mapped);
+			dst[0] = data;
+		}
+
+		void GPUBuffer::FillBufferWithData(VkDevice device, const GPUBuffer& gpu_buffer, void* pdata)
 		{
 			if (gpu_buffer.size == 0 || gpu_buffer.buffer == VK_NULL_HANDLE || gpu_buffer.memory == VK_NULL_HANDLE)
 				throw std::runtime_error("[GPU BUFFER]{MAPMEMEMORY}: buffer might be empty or was not allocated!!!!");
@@ -86,7 +94,15 @@ namespace Fluxon {
 			vkUnmapMemory(device, gpu_buffer.memory);
 		}
 
-		void DestoryBuffer(VkDevice device, const GPUBuffer& gpu_buffer)
+		void GPUBuffer::TransferGPUBufferData(const VulkanContext* vk_ctx, VkCommandPool cmd_pool, const GPUBuffer& src_buff, GPUBuffer& dst_buff)
+		{
+			FLUX_DEBUG_ASSERT_CRITICAL(src_buff.size == dst_buff.size && src_buff.size != 0, "[GPU BUFFER]{MAPMEMEMORY}: src buffer might be empty or dst size != src size!!!!");
+
+			VkDeviceSize& buffer_size = dst_buff.size;
+			Resources::CopyBuffer(vk_ctx, cmd_pool, src_buff.buffer, dst_buff.buffer, buffer_size);
+		}
+
+		void GPUBuffer::DestoryBuffer(VkDevice device, const GPUBuffer& gpu_buffer)
 		{
 			vkDestroyBuffer(device, gpu_buffer.buffer, nullptr);
 			vkFreeMemory(device, gpu_buffer.memory, nullptr);

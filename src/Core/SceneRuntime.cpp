@@ -8,7 +8,7 @@
 
 #include "Editor/MainSceneEditor.h"
 
-
+#include "Renderer/Render Passes/ComputePass.h"
 
 #define LOAD_SCENE_FROM_FILE 1
 
@@ -16,9 +16,9 @@
 namespace Fluxon {
 
 
-	void Vulkan::BeginFrame2(VulkanContext& vk_render_ctx, FrameResources& frame_resources, uint32_t& o_img_idx, const Platform::Window& window, VkRenderPass render_pass, UI_System* ui_in_use)
+	void Vulkan::BeginGfxFrameCommand(VulkanContext& vk_render_ctx, FrameResources& frame_resources, uint32_t& o_img_idx, 
+						const Platform::Window& window, VkRenderPass render_pass, UI_System* ui_in_use)
 	{
-
 		//wait for frames prvious GPU work finish 
 		//everything is contained in frame
 		vkWaitForFences(vk_render_ctx.device, 1, &frame_resources.inFlight, VK_TRUE, UINT64_MAX);
@@ -48,7 +48,9 @@ namespace Fluxon {
 		//if (mSwapchain->mImagesInFlight[img_index] != VK_NULL_HANDLE)
 		//	vkWaitForFences(mDevice.device, 1, &mSwapchain->mImagesInFlight[img_index], VK_TRUE, UINT64_MAX);
 
-		vkResetCommandPool(vk_render_ctx.device, frame_resources.commandPool, 0);
+		//vkResetCommandPool(vk_render_ctx.device, frame_resources.commandPool, 0);
+		vkResetCommandBuffer(frame_resources.commandBuffer, 0);
+
 
 		if (ui_in_use)
 			ui_in_use->StartFrame();
@@ -63,29 +65,8 @@ namespace Fluxon {
 			throw std::runtime_error("Failed to begin recording command buffer!!!!!");
 	}
 
-	void Vulkan::EndFrame2(Vulkan::FrameResources& frame_resources, VulkanContext& vk_render_ctx, uint32_t img_idx, Platform::Window& window, VkRenderPass render_pass)
+	void Vulkan::SwapPresentFrameImage(FrameResources& frame_reso, VulkanContext& vk_render_ctx, uint32_t img_idx, Platform::Window& window, VkRenderPass render_pass)
 	{
-		if (vkEndCommandBuffer(frame_resources.commandBuffer) != VK_SUCCESS)
-			throw std::runtime_error("Failed to record command buffer!!!!");
-
-		VkSubmitInfo submit_info{};
-		submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-		VkPipelineStageFlags wait_stages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
-		submit_info.waitSemaphoreCount = 1;
-		submit_info.pWaitSemaphores = &frame_resources.imageAvailable;
-		submit_info.pWaitDstStageMask = wait_stages;
-
-		submit_info.commandBufferCount = 1;
-		submit_info.pCommandBuffers = &frame_resources.commandBuffer;
-		submit_info.signalSemaphoreCount = 1;
-		submit_info.pSignalSemaphores = &vk_render_ctx.swapchain->GetImages()[img_idx].renderComplete;
-
-		if (vkQueueSubmit(vk_render_ctx.graphicsQueue, 1, &submit_info, frame_resources.inFlight) != VK_SUCCESS)
-			throw std::runtime_error("Failed to submit draw command buffer!!!!");
-
-		//Matrk image as in use by this frame 
-		//mSwapchain->mImagesInFlight[img_index] = frame.inFlight;
-
 		//Present
 		VkPresentInfoKHR present_info{};
 		present_info.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
@@ -107,12 +88,98 @@ namespace Fluxon {
 		{
 			std::cout << "\033[1;31m [DRAW FRAME]\033[0m: " << "Need to Resize image acquire, for Presentation" << std::endl;
 			window.windowResized = false;
-			WindowResizedRecreateResource2(vk_render_ctx, window, frame_resources.commandPool, render_pass);
+			WindowResizedRecreateResource2(vk_render_ctx, window, frame_reso.commandPool, render_pass);
 		}
 		else if (presenting_queue_result != VK_SUCCESS)
 			std::cout << "\033[1;31m [DRAW FRAME]\033[0m: " << "Failed to Present Image" << std::endl;
+	}
 
-		vk_render_ctx.frameIndex = (vk_render_ctx.frameIndex + 1) % MAX_FRAMES_IN_FLIGHT;
+	void Vulkan::BeginComputeFrameCommand(VulkanContext& vk_render_ctx, FrameResources& frame_resources, ComputePass* compute_pass)
+	{
+		//compute 
+		if (compute_pass != nullptr)
+		{
+			vkWaitForFences(vk_render_ctx.device, 1, &frame_resources.computeInFlight, VK_TRUE, UINT64_MAX);
+
+			//need to remove this "compute_pass->PreBeginFrameSync(vk_render_ctx.frameIndex, vk_render_ctx.frameDT);" 
+			//it createa restriction on custom vcompute pass/it ties compute pass with beginning command buffer
+			compute_pass->PreBeginFrameSync(vk_render_ctx.frameIndex, vk_render_ctx.frameDT);
+			vkResetFences(vk_render_ctx.device, 1, &frame_resources.computeInFlight);
+
+			//might have to remove vkResetCommandPool(vk_render_ctx.device, frame_resources.commandPool, 0);
+			//below becasue both compute & gfx cmd buffer are in the same pool.
+			//so by reseting the command pool it might reset all cmd buffers 
+			vkResetCommandBuffer(frame_resources.computeCommandBuffer, 0);
+
+
+			VkCommandBufferBeginInfo begin_info{};
+			begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+			begin_info.flags = 0; //VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+			begin_info.pInheritanceInfo = nullptr;
+
+
+			if (vkBeginCommandBuffer(frame_resources.computeCommandBuffer, &begin_info) != VK_SUCCESS)
+				throw std::runtime_error("Failed to begin recording compute command buffer!!!!!");
+		}
+	}
+
+	void Vulkan::EndComputeFrameCommand(VulkanContext& vk_render_ctx, FrameResources& frame_reso)
+	{
+		if (vkEndCommandBuffer(frame_reso.computeCommandBuffer) != VK_SUCCESS)
+			throw std::runtime_error("Failed to record compute command buffer!!!!");
+
+		VkSubmitInfo submit_info{};
+
+		submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+		submit_info.commandBufferCount = 1;
+		submit_info.pCommandBuffers = &frame_reso.computeCommandBuffer;
+		submit_info.signalSemaphoreCount = 1;
+		submit_info.pSignalSemaphores = &frame_reso.computeCompleteSemaphore;
+
+		if (vkQueueSubmit(vk_render_ctx.computeQueue, 1, &submit_info, frame_reso.computeInFlight) != VK_SUCCESS) {
+			throw std::runtime_error("failed to submit compute command buffer!");
+		};
+	}
+
+	void Vulkan::EndGfxFrameCommand(Vulkan::FrameResources& frame_reso, VulkanContext& vk_render_ctx, uint32_t img_idx)
+	{
+		if (vkEndCommandBuffer(frame_reso.commandBuffer) != VK_SUCCESS)
+			throw std::runtime_error("Failed to record compute command buffer!!!!");
+
+		VkSemaphore waitSemaphores[] = { frame_reso.computeCompleteSemaphore, frame_reso.imageAvailable };
+		VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_VERTEX_INPUT_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
+		VkSubmitInfo submit_info{};
+
+		submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+		submit_info.waitSemaphoreCount = 2;
+		submit_info.pWaitSemaphores = waitSemaphores;
+		submit_info.pWaitDstStageMask = waitStages;
+		submit_info.commandBufferCount = 1;
+		submit_info.pCommandBuffers = &frame_reso.commandBuffer;
+		submit_info.signalSemaphoreCount = 1;
+		submit_info.pSignalSemaphores = &vk_render_ctx.swapchain->GetImages()[img_idx].renderComplete;
+
+		if (vkQueueSubmit(vk_render_ctx.graphicsQueue, 1, &submit_info, frame_reso.inFlight) != VK_SUCCESS)
+			throw std::runtime_error("Failed to submit draw command buffer!!!!");
+
+
+		//VkSubmitInfo submit_info{};
+		//submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+		//VkPipelineStageFlags wait_stages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
+		//submit_info.waitSemaphoreCount = 1;
+		//submit_info.pWaitSemaphores = &frame_resources.imageAvailable;
+		//submit_info.pWaitDstStageMask = wait_stages;
+
+		//submit_info.commandBufferCount = 1;
+		//submit_info.pCommandBuffers = &frame_resources.commandBuffer;
+		//submit_info.signalSemaphoreCount = 1;
+		//submit_info.pSignalSemaphores = &vk_render_ctx.swapchain->GetImages()[img_idx].renderComplete;
+
+		//if (vkQueueSubmit(vk_render_ctx.graphicsQueue, 1, &submit_info, frame_resources.inFlight) != VK_SUCCESS)
+		//	throw std::runtime_error("Failed to submit draw command buffer!!!!");
+
+		//Matrk image as in use by this frame 
+		//mSwapchain->mImagesInFlight[img_index] = frame.inFlight;
 	}
 
 	void Vulkan::WindowResizedRecreateResource2(VulkanContext& vk_render_ctx, const Platform::Window& window, VkCommandPool cmd_pool, VkRenderPass render_pass)
@@ -156,15 +223,20 @@ namespace Fluxon {
 
 
 
-		mVulkanContext = Vulkan::CreateVulkanContext(&window, true, DebugCallback);
+		mVulkanContext = Vulkan::VulkanContext::CreateVulkanContext(&window, true, DebugCallback);
+
+
 
 
 		mScene.SetForwardRenderPass(std::make_unique<Vulkan::ForwardRenderPass>());
 		Vulkan::ForwardRenderPass* forward_render_pass = mScene.GetForwardRenderPass();
 		forward_render_pass->Init(&mVulkanContext);
-		mFrames.resize(Vulkan::MAX_FRAMES_IN_FLIGHT);
+		mFrames.resize(Vulkan::kMaxFramesInFlight);
 		Vulkan::CreateFrameObjects(&mVulkanContext, mFrames);
 
+		mShadowGfxPass.Init(&mVulkanContext, mFrames[0].commandPool);
+
+		mSceneCollsionVoxelPass.Init(&mVulkanContext, mFrames[0].commandPool, mCamera);
 		//TODO : later move framebuffer/renderpass out of swap chain 
 		//so it would depend on renderpass 
 		//mVulkanContext.swapchain = std::make_unique<Vulkan::Swapchain>(&mDevice, window, mFrames[0].commandPool, forward_render_pass.renderPass);
@@ -174,7 +246,7 @@ namespace Fluxon {
 		
 
 #if LOAD_SCENE_FROM_FILE
-		mScene.mSceneResources.camera = app_cam_ref;
+		mScene.mSceneResources.camera = static_cast<EditorCamera*>(app_cam_ref);
 		//quick hack for loading
 		mScene.mSceneResources.directionalLight = &mDirLight;
 		SceneSerialiser scene_serialiser;
@@ -204,6 +276,8 @@ namespace Fluxon {
 		uint32_t matertial_desc_set_idx;// = mScene.AddDescriptorSetSpecification({});
 		CreateSkyboxDescriptionSetLayout(mVulkanContext.device, mScene.GetDescriptorSetSpecificationByIdx(skybox_desc_set_idx));
 		CreateModelSceneDescriptionSetLayout(&mVulkanContext, mScene.GetDescriptorSetSpecificationByIdx(model_desc_set_idx));
+
+		mSceneModelDescSetIdx = model_desc_set_idx;
 
 		std::array<const char*, Vulkan::SHADER_PBR_MATERIAL_MAX_MAPS> old_pbr_mat_paths =
 		{
@@ -250,7 +324,7 @@ namespace Fluxon {
 		Vulkan::GraphicsPipelineSpecification model_gfx_pipeline_spec{};
 		model_gfx_pipeline_spec.vertexShaderPath = "assets/shaders/spirvs/model_shading.vert.spv";
 		model_gfx_pipeline_spec.fragmentShaderPath = "assets/shaders/spirvs/model_shading.frag.spv";
-		model_gfx_pipeline_spec.renderPass = forward_render_pass;
+		model_gfx_pipeline_spec.renderPass = forward_render_pass->GetRenderPassHandle();
 		model_gfx_pipeline_spec.descriptorSetLayouts = {
 			mScene.GetDescriptorSetSpecificationByIdx(matertial_desc_set_idx).layoutHandle,
 			mScene.GetDescriptorSetSpecificationByIdx(model_desc_set_idx).layoutHandle,
@@ -260,19 +334,19 @@ namespace Fluxon {
 		uint32_t model_gfx_pipeline_idx = mScene.AddGfxPipeline(Vulkan::GraphicsPipeline());
 		mScene.GetGfxPipelineByIdx(model_gfx_pipeline_idx).Init(&mVulkanContext, model_gfx_pipeline_spec);
 
-
+		VkDescriptorSetLayout dummy_desc_set_layout = mVulkanContext.dummyDescSetLayout;
 		Vulkan::GraphicsPipelineSpecification skybox_gfx_pipeline_spec{};
 		skybox_gfx_pipeline_spec.vertexShaderPath = "assets/shaders/spirvs/skybox.vert.spv";
 		skybox_gfx_pipeline_spec.fragmentShaderPath = "assets/shaders/spirvs/skybox.frag.spv";
-		skybox_gfx_pipeline_spec.renderPass = forward_render_pass;
+		skybox_gfx_pipeline_spec.renderPass = forward_render_pass->GetRenderPassHandle();
 		skybox_gfx_pipeline_spec.descriptorSetLayouts = {
-			mScene.GetDescriptorSetSpecificationByIdx(matertial_desc_set_idx).layoutHandle,
+			dummy_desc_set_layout, //mScene.GetDescriptorSetSpecificationByIdx(matertial_desc_set_idx).layoutHandle,  //<-------- Need to remove not but a desc set 0 is required so serve as dummy 
 			mScene.GetDescriptorSetSpecificationByIdx(model_desc_set_idx).layoutHandle,
 			mScene.GetDescriptorSetSpecificationByIdx(skybox_desc_set_idx).layoutHandle };
 		skybox_gfx_pipeline_spec.pushConstantRanges = { };
 
 		skybox_gfx_pipeline_spec.rasterisationCullMode = VK_CULL_MODE_FRONT_BIT;
-		skybox_gfx_pipeline_spec.enableDepthWrite = false;
+		skybox_gfx_pipeline_spec.bEnableDepthWrite = false;
 		skybox_gfx_pipeline_spec.depthCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL;
 		////leave remain data as default 
 		uint32_t skybox_gfx_pipeline_idx = mScene.AddGfxPipeline(Vulkan::GraphicsPipeline());
@@ -286,7 +360,7 @@ namespace Fluxon {
 
 
 		std::vector<Vulkan::DescriptorSetSpecification> desc_set_layout_spec = {
-			mScene.GetDescriptorSetSpecificationByIdx(matertial_desc_set_idx),
+			mScene.GetDescriptorSetSpecificationByIdx(matertial_desc_set_idx), 
 			mScene.GetDescriptorSetSpecificationByIdx(model_desc_set_idx),
 			mScene.GetDescriptorSetSpecificationByIdx(skybox_desc_set_idx) };
 		Vulkan::GenerateFrameObjectDescriptorPoolSet(mVulkanContext.device, desc_set_layout_spec, mFrames);
@@ -328,6 +402,8 @@ namespace Fluxon {
 			tex_image_format,
 			mScene.GetImageSamplerByIdx(tex_image_sampler_idx),
 			mUseSamplingAnisotropy);
+
+
 		Vulkan::DescriptorBinding texture_binding = Vulkan::DescriptorBinding::MakeImageSampler(1, 1, mScene.GetImageSamplerByIdx(tex_image_sampler_idx));
 
 		std::vector<const char*> skybox_imgs = {
@@ -349,15 +425,43 @@ namespace Fluxon {
 		//auto pbr_material_tex_binding = Vulkan::PBRMaterial::GetDescriptorSetBindings(mScene.GetMaterialByIdx(pbr_mat_idx), 0);
 		auto pbr_material_tex_binding = Vulkan::PBRMaterial::GetDescriptorSetBindings(mScene.GetMaterialByIdx(pbr_mat_idx).gpuMaterial, 0);
 
+		Vulkan::DescriptorBinding shadow_map_binding = mShadowGfxPass.GetSamplerBinding(1, 3);
+
+
 		for (auto& frame : mFrames)
 		{
 			for (auto& pbr_mat_binding : pbr_material_tex_binding)
 				frame.AppendDescriptorBinding(pbr_mat_binding);
 			frame.AppendDescriptorBinding(texture_binding);
 			frame.AppendDescriptorBinding(skybox_cube_tex_binding);
+
+			frame.AppendDescriptorBinding(shadow_map_binding);
+
 			frame.WritePendingDescriptorBinding(mVulkanContext.device);
+
+			//append Computer Descriptorsd
+			
 		}
 
+
+		mScene.mSceneResources.shadowPassDepthRT = &mShadowGfxPass.GetShadowDepthRenderTarget();
+		mScene.mSceneResources.voxelDepthRT = &mSceneCollsionVoxelPass.GetDepthRenderTarget();
+		mComputePass.Init(&mVulkanContext, mFrames[0].commandPool, forward_render_pass->GetRenderPassHandle(), mScene.GetDescriptorSetSpecificationByIdx(model_desc_set_idx).layoutHandle);
+		mScene.mSceneResources.particleEmitter = &mComputePass.mEmitter;
+
+
+		mDebugLines.Init(&mVulkanContext, forward_render_pass->GetRenderPassHandle(), mScene.GetDescriptorSetSpecificationByIdx(model_desc_set_idx).layoutHandle);
+
+
+		VkPhysicalDeviceLimits device_limits = mVulkanContext.GetPhysicalDeviceLimits();
+		std::cout << "max Framebuffer Layers: " <<  device_limits.maxFramebufferLayers <<"\n";
+		std::cout << "SSBO storage limits: " <<  device_limits.maxStorageBufferRange <<"\n";
+		printf("Per Stage Descriptor Storage Buffers limits: %d\n", (int)device_limits.maxPerStageDescriptorStorageBuffers);
+		printf("Descriptor Set Storage Buffers limits: %d\n", (int)device_limits.maxDescriptorSetStorageBuffers);
+		printf("Compute Work Group count Limit: %d\n", (int)device_limits.maxComputeWorkGroupCount);
+		printf("Compute Work Group innvocation Limit: %d\n", (int)device_limits.maxComputeWorkGroupInvocations);
+		auto& wGS = device_limits.maxComputeWorkGroupSize;
+		printf("Compute Work Group innvocation Limit, \n\t [1]: %d, \n\t [2]: %d,\n\t [3]: %d\n", (int)wGS[0], (int)wGS[1], (int)wGS[2]);
 	}
 
 
@@ -389,9 +493,16 @@ namespace Fluxon {
 		directional_lighting_layout_binding.pImmutableSamplers = nullptr;
 		directional_lighting_layout_binding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 
+		VkDescriptorSetLayoutBinding shadow_sampler_layout_binding{};
+		shadow_sampler_layout_binding.binding = 3;
+		shadow_sampler_layout_binding.descriptorCount = 1;
+		shadow_sampler_layout_binding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+		shadow_sampler_layout_binding.pImmutableSamplers = nullptr;
+		shadow_sampler_layout_binding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+
 
 		//group bindings 
-		std::array<VkDescriptorSetLayoutBinding, 3> bindings = { ubo_layout_binding, sampler_layout_binding, directional_lighting_layout_binding };
+		std::array<VkDescriptorSetLayoutBinding, 4> bindings = { ubo_layout_binding, sampler_layout_binding, directional_lighting_layout_binding, shadow_sampler_layout_binding };
 		VkDescriptorSetLayoutCreateInfo layout_create_info{};
 		layout_create_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
 		layout_create_info.bindingCount = static_cast<uint32_t>(bindings.size());
@@ -402,19 +513,19 @@ namespace Fluxon {
 	}
 	void SceneRuntime::CreateSkyboxDescriptionSetLayout(VkDevice d, Vulkan::DescriptorSetSpecification& description_set_spec)
 	{
-		VkDescriptorSetLayoutBinding skybox_samplercube_layout_binding{};
+		VkDescriptorSetLayoutBinding skybox_samplercube_layout_binding{}; //<--- used in both model & sybox fragment shader as the Image Cube Map
 		skybox_samplercube_layout_binding.binding = 0;
 		skybox_samplercube_layout_binding.descriptorCount = 1;
 		skybox_samplercube_layout_binding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 		skybox_samplercube_layout_binding.pImmutableSamplers = nullptr;
 		skybox_samplercube_layout_binding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 
-		VkDescriptorSetLayoutBinding skybox_ubo_layout_binding{};
+		VkDescriptorSetLayoutBinding skybox_ubo_layout_binding{}; //<<---- used in model fragment for samplaing parameters 
 		skybox_ubo_layout_binding.binding = 1;
 		skybox_ubo_layout_binding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 		skybox_ubo_layout_binding.descriptorCount = 1;
-		skybox_ubo_layout_binding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 		skybox_ubo_layout_binding.pImmutableSamplers = nullptr;
+		skybox_ubo_layout_binding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 
 		//group bindings 
 		std::array<VkDescriptorSetLayoutBinding, 2> bindings = { skybox_samplercube_layout_binding, skybox_ubo_layout_binding };
@@ -538,6 +649,7 @@ namespace Fluxon {
 
 	void SceneRuntime::Update(float delta_time, Platform::Window* p_window, Camera* p_frame_camera)
 	{
+		mVulkanContext.frameDT = delta_time;
 		//current passes
 		//only one passes required : forward pass
 		//later this is build inside Scene
@@ -555,10 +667,16 @@ namespace Fluxon {
 
 		mScene.mSceneResources.directionalLight = &mDirLight;
 		mScene.mSceneResources.skybox = &mSkybox;
+		mScene.mSceneResources.currentFrameDT = delta_time;
 		mScene.Update(delta_time, mSceneContext);
 
+		//need imgui desc for dshadow target
+		auto& shadow_depth = mShadowGfxPass.GetShadowDepthRenderTarget();
+		if (!shadow_depth.targetMask.Contains(ERenderTargetBits::ImGuiView))
+			Vulkan::RenderTarget::MakeRenderTarget(&mVulkanContext, shadow_depth, ERenderTargetBits::ImGuiView);
 
 		///TODOConqster): sort as we instert render Objects 
+
 
 		//by now the scene context should be updated 
 		uint32_t swapchain_img_idx;
@@ -567,8 +685,67 @@ namespace Fluxon {
 		//Vulkan::BeginFrame(mVulkanContext, curr_frame, swapchain_img_idx, mWindow, mForwardRenderPass.renderPass, &mImGuiUI);
 		//need to fix this function later; render pass is only need to reconstrcution the swapchain if window resize 
 		//so this does not define the render pass begine
-		UpdateGlobalFrameDataUBO(curr_frame, mWindow->width, mWindow->height);
-		Vulkan::BeginFrame2(mVulkanContext, curr_frame, swapchain_img_idx, *mWindow, mScene.GetForwardRenderPass()->GetRenderPassHandle(), &mImGuiUI);
+
+		LightShadowData& light_shadow_data = mScene.mSceneResources.lightShadowData;
+
+		glm::mat4 proj = glm::ortho(-light_shadow_data.viewSize, light_shadow_data.viewSize,
+			-light_shadow_data.viewSize, light_shadow_data.viewSize,
+			light_shadow_data.near, light_shadow_data.far);
+		proj[1][1] *= -1;
+		glm::vec3 normalised_light_dir = glm::normalize(mDirLight.direction);
+		glm::vec3 light_pos = light_shadow_data.sampleOrigin - (normalised_light_dir * light_shadow_data.sampleShadowDistance);
+		//glm::mat4 view = glm::lookAt(light_pos, light_shadow_data.sampleOrigin, light_shadow_data.sampleWorldUp); //world up 0, 1, 0
+		glm::vec3 up = (glm::abs(glm::dot(normalised_light_dir, glm::vec3(0, 1, 0))) > 0.99f) ? glm::vec3(0, 0, 1) : glm::vec3(0, 1, 0);
+		glm::mat4 view = glm::lookAt(light_pos, light_shadow_data.sampleOrigin, up); //world up 0, 1, 0
+
+
+		Vulkan::BeginComputeFrameCommand(mVulkanContext, curr_frame, &mComputePass);
+
+		mComputePass.Begin(&mVulkanContext, curr_frame.computeCommandBuffer, 0);
+
+		Vulkan::EndComputeFrameCommand(mVulkanContext, curr_frame);
+		
+		UpdateGlobalFrameDataUBO(curr_frame, mWindow->width, mWindow->height, view, proj);
+		Vulkan::BeginGfxFrameCommand(mVulkanContext, curr_frame, swapchain_img_idx, *mWindow, mScene.GetForwardRenderPass()->GetRenderPassHandle(), &mImGuiUI);
+		
+
+
+		//shadow pass 
+		mShadowGfxPass.depthBiasConstantFactor = mScene.mSceneResources.lightShadowData.depthBiasConstantFactor;
+		mShadowGfxPass.depthBiasClamp = mScene.mSceneResources.lightShadowData.depthBiasClamp;
+		mShadowGfxPass.depthBiasSlopeFactor = mScene.mSceneResources.lightShadowData.depthBiasSlopeFactor;
+		mShadowGfxPass.Begin(&mVulkanContext, curr_cmd_buff, 0);
+
+		//view = Camera::GetView(*mCamera);
+		//proj = Camera::GetProjection(*mCamera, mWindow->width, mWindow->height);
+		//glm::mat4 light_matrix = proj * view; 
+		//light_matrix = Camera::GetProjection(*mCamera, mWindow->width, mWindow->height) * Camera::GetView(*mCamera);
+		mShadowGfxPass.UpdateLightMatrixBuffer(view, proj);
+		for (auto& render_obj : mSceneContext.renderPassBuckets[0].renderObjects)
+		{
+			if ((render_obj.maskLayer & ERenderMask::RM_ShadowCaster) == ERenderMask::RM_ShadowCaster)
+			{
+				auto& matrix = render_obj.GPUModel.transform;
+				mShadowGfxPass.PushModelTransformConstant(curr_cmd_buff, &render_obj.GPUModel);
+				render_obj.mesh->Draw(curr_cmd_buff);
+			}
+		}
+		mShadowGfxPass.End(curr_cmd_buff);
+
+
+
+		//voxel scene geometry pass
+		mSceneCollsionVoxelPass.Begin(&mVulkanContext, curr_cmd_buff, swapchain_img_idx);
+		mSceneCollsionVoxelPass.UpdateCameraData(mCamera);
+		mSceneCollsionVoxelPass.UpdateVoxelParamData({});
+		for (auto& render_obj : mSceneContext.renderPassBuckets[0].renderObjects)
+		{
+			auto& matrix = render_obj.GPUModel.transform;
+			mSceneCollsionVoxelPass.PushModelTransformConstant(curr_cmd_buff, &render_obj.GPUModel);
+			render_obj.mesh->Draw(curr_cmd_buff);
+		}
+		mSceneCollsionVoxelPass.End(curr_cmd_buff);
+		
 		for (auto& render_passes : mSceneContext.renderPassBuckets)
 		{
 			if (render_passes.type == ERenderPassType::RenderPass_None)
@@ -595,43 +772,83 @@ namespace Fluxon {
 					curr_pipeline = render_obj.pipelineIdx;
 				}
 
-				for(auto& push_const : render_obj.pushConstantSpecs)
+				for (auto& push_const : render_obj.pushConstantSpecs)
 					gfx_pipeline->PushConstant(curr_cmd_buff, push_const.stage_flag, push_const.offset, push_const.size, push_const.pdata);
 
 				render_obj.mesh->Draw(curr_cmd_buff);
 			}
 
+			auto camera_desc_set = &curr_frame.GetGlobalDescriptorSet(mScene.GetDescriptorSetSpecificationByIdx(mSceneModelDescSetIdx));
+			//Test: Draw Debug Line 
+			//mDebugLinePipeline.Bind(curr_cmd_buff);
+			//mDebugLinePipeline.BindDescriptorSets(curr_cmd_buff, camera_desc_set, 1, 1);
+			//
+			//VkDeviceSize offsets[] = { 0 };
+			//vkCmdBindVertexBuffers(curr_cmd_buff, 0, 1, &mDebugVertexBuffer.buffer, offsets);
+			//vkCmdDraw(curr_cmd_buff, 4, 1, 0, 0);
+			//debug_line[0].position = glm::vec4(0.0f, -5.0f, 0.0, 1.0f);
+//debug_line[1].position = glm::vec4(0.0f, 5.0f, 0.0, 1.0f);
+//debug_line[2].position = glm::vec4(-5.0f, 0.0f, 0.0, 1.0f);
+//debug_line[3].position = glm::vec4(5.0f, 0.0f, 0.0, 1.0f);
+
+			mDebugLines.BeginFrame(mVulkanContext.frameIndex);
+
+			auto& emitter = mComputePass.mEmitter;
+			glm::vec3 bounds_min = /*emitter.worldTransform * */glm::vec4(emitter.boundsMin, 1.0f);
+			glm::vec3 bounds_max = /*emitter.worldTransform * */ glm::vec4(emitter.boundsMax, 1.0f);
+			std::array<glm::vec3, 24> aabb_edges = Utils::GenerateAABBEdges(emitter.worldTransform, bounds_min, bounds_max);
+
+		
+			for(size_t i = 0; i < aabb_edges.size(); i+=2)
+				mDebugLines.PushLine({ glm::vec4(aabb_edges[i], 1.0f), Colour32::sCyan}, { glm::vec4(aabb_edges[i+1], 1.0f), Colour32::sCyan });
+
+			glm::vec4 localGravity = glm::inverse(emitter.worldTransform) * glm::vec4(0.0f, -9.8f, 0.0f, 0.0f);
+			mDebugLines.PushLine({ emitter.worldTransform[3] }, { emitter.worldTransform[3] + localGravity * 4.0f });
+
+			mDebugLines.PushLine({ glm::vec4(10.0f, -5.0f, 0.0, 1.0f) }, { glm::vec4(0.0f, 5.0f, 0.0, 1.0f) });
+			mDebugLines.PushLine({ glm::vec4(-5.0f, 0.0f, 0.0, 1.0f) }, { glm::vec4(5.0f, 0.0f, 0.0, 1.0f) });
+
+			mDebugLines.DrawDebugLines(&mVulkanContext, curr_cmd_buff, camera_desc_set);
+
+			mComputePass.HackRenderComputeParticle(&mVulkanContext, curr_cmd_buff, camera_desc_set);
 			
-				Editor::SceneRuntimeUIWindow(mScene.mSceneResources);
-				ImGui::ShowDemoWindow();
-				mImGuiUI.RenderFrame(curr_cmd_buff);
+			Editor::SceneRuntimeUIWindow(mScene.mSceneResources);
+			ImGui::ShowDemoWindow();
+			mImGuiUI.RenderFrame(curr_cmd_buff);
 			//render_passes.pass->End(curr_cmd_buff);
 			mScene.GetForwardRenderPass()->End(curr_cmd_buff);
 			//Vulkan::EndFrame2(curr_frame, mVulkanContext, swapchain_img_idx, *mWindow, render_passes.pass->GetRenderPassHandle());
 		}
 
 
-		Vulkan::EndFrame2(curr_frame, mVulkanContext, swapchain_img_idx, *mWindow, mScene.GetForwardRenderPass()->GetRenderPassHandle());
+		Vulkan::EndGfxFrameCommand(curr_frame, mVulkanContext, swapchain_img_idx);
+		Vulkan::SwapPresentFrameImage(curr_frame, mVulkanContext, swapchain_img_idx, *mWindow, mScene.GetForwardRenderPass()->GetRenderPassHandle());
 
+		mVulkanContext.frameIndex = (mVulkanContext.frameIndex + 1) % Vulkan::kMaxFramesInFlight;
 	}
 
 
-	void SceneRuntime::UpdateGlobalFrameDataUBO(Vulkan::FrameResources& frame_resources, float win_width, float win_height)
+	void SceneRuntime::UpdateGlobalFrameDataUBO(Vulkan::FrameResources& frame_resources, float win_width, float win_height, glm::mat4 light_view, glm::mat4 light_proj)
 	{
 		GPUStructures::MVP_UniformBufferObject MVP;
 		if (!mCamera)
 			return;
-		MVP.view = Camera::GetView(*mCamera);
-		MVP.projection = Camera::GetProjection(*mCamera, win_width, win_height);
-		MVP.position = mCamera->position;
+		MVP.view = mCamera->GetView();
+		MVP.projection = mCamera->GetProjection(win_width, win_height);
+		MVP.position = mCamera->GetPosition();
+		MVP.lightView = light_view;
+		MVP.lightProj = light_proj;
 
-		Vulkan::CopyToMappedMemory(frame_resources.globalCameraUniformBuffer, &MVP, sizeof(MVP));
+
+		//FLUX_DEBUG_ASSERT(!frame_resources.globalCameraUniformBuffer.IsMapped());
+		
+		Vulkan::GPUBuffer::CopyToMappedMemory(frame_resources.globalCameraUniformBuffer, &MVP, sizeof(MVP));
 
 		//update light descriptor uniform buffer 
-		Vulkan::CopyToMappedMemory(frame_resources.globalDirectionalLightUniformBuffer, &mDirLight, sizeof(mDirLight));
+		Vulkan::GPUBuffer::CopyToMappedMemory(frame_resources.globalDirectionalLightUniformBuffer, &mDirLight, sizeof(mDirLight));
 
 		//update skybox descriptor uniform buffer 
-		Vulkan::CopyToMappedMemory(frame_resources.globalSkyboxUniformBuffer, &mSkybox, sizeof(mSkybox));
+		Vulkan::GPUBuffer::CopyToMappedMemory(frame_resources.globalSkyboxUniformBuffer, &mSkybox, sizeof(mSkybox));
 
 		//update material 
 #if DEBUG_MAT_HACK

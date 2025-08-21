@@ -1,40 +1,76 @@
 
-[05/08/2025 18:32:44.89] Begin Cleaning Old SPIR-V shaders.
+[21/08/2025  8:34:40.75] Begin Cleaning Old SPIR-V shaders.
+debug_line.frag.spv 		-Deleted.
+debug_line.vert.spv 		-Deleted.
 model_shading.frag.spv 		-Deleted.
 model_shading.vert.spv 		-Deleted.
+model_voxel.frag.spv 		-Deleted.
+model_voxel.geom.spv 		-Deleted.
+model_voxel.vert.spv 		-Deleted.
+particle.comp.spv 		-Deleted.
+particle.frag.spv 		-Deleted.
+particle.vert.spv 		-Deleted.
+shadowDepth.frag.spv 		-Deleted.
+shadowDepth.vert.spv 		-Deleted.
 skybox.frag.spv 		-Deleted.
 skybox.vert.spv 		-Deleted.
-[05/08/2025 18:32:44.93] Completed Cleaning Old SPIR-V shaders.
+[21/08/2025  8:34:40.88] Completed Cleaning Old SPIR-V shaders.
 
  
-[05/08/2025 18:32:44.95] Recompiling shaders to SPIR-V.
+[21/08/2025  8:34:40.91] Recompiling shaders to SPIR-V.
  
-[05/08/2025 18:32:44.97] == Compiling Vertex shaders to SPIR-V.==
-[05/08/2025 18:32:44.97] [VEXTEX] - model_shading.vert 		: OK 
-[05/08/2025 18:32:44.97] [VEXTEX] - skybox.vert 		: OK 
+[21/08/2025  8:34:40.93] == Compiling Vertex shaders to SPIR-V.==
+[21/08/2025  8:34:40.94] [VEXTEX] - debug_line.vert 		: OK 
+[21/08/2025  8:34:40.94] [VEXTEX] - model_shading.vert 		: OK 
+[21/08/2025  8:34:40.94] [VEXTEX] - model_voxel.vert 		: OK 
+[21/08/2025  8:34:40.94] [VEXTEX] - particle.vert 		: OK 
+[21/08/2025  8:34:40.94] [VEXTEX] - shadowDepth.vert 		: OK 
+[21/08/2025  8:34:40.94] [VEXTEX] - skybox.vert 		: OK 
  
-[05/08/2025 18:32:45.22] == Compiling Fragment shaders to SPIR-V.==
-[05/08/2025 18:32:45.22] [FRAGMENT] - model_shading.frag 		: OK 
-[05/08/2025 18:32:45.22] [FRAGMENT] - skybox.frag 		: OK 
+[21/08/2025  8:34:41.64] == Compiling Fragment shaders to SPIR-V.==
+[21/08/2025  8:34:41.65] [FRAGMENT] - debug_line.frag 		: OK 
+[21/08/2025  8:34:41.65] [FRAGMENT] - model_shading.frag 		: OK 
+[21/08/2025  8:34:41.65] [FRAGMENT] - model_voxel.frag 		: OK 
+[21/08/2025  8:34:41.65] [FRAGMENT] - particle.frag 		: OK 
+[21/08/2025  8:34:41.65] [FRAGMENT] - shadowDepth.frag 		: OK 
+[21/08/2025  8:34:41.65] [FRAGMENT] - skybox.frag 		: OK 
+ 
+[21/08/2025  8:34:42.39] == Compiling Compute shaders to SPIR-V.==
+[21/08/2025  8:34:42.39] [COMPUTE] - particle.comp 		: OK 
+ 
+[21/08/2025  8:34:42.54] == Compiling Geometry shaders to SPIR-V.==
+[21/08/2025  8:34:42.54] [GEOMETRY] - model_voxel.geom 		: OK 
 
 =============================
 Shader Compilation Summary 
 -----------------------------
-Vertex shaders OK	: 2
+Vertex shaders OK	: 6
 Vertex shaders FAIL	: 0
 -----------------------------
-Vertex Total		: 2
+Vertex Total		: 6
 -----------------------------
 
-Fragment shaders OK	: 2
+Fragment shaders OK	: 6
 Fragment shaders FAIL	: 0
 -----------------------------
-Fragment Total		: 2
+Fragment Total		: 6
 -----------------------------
 
-Total OK		: 4
+Compute shaders OK	: 1
+Compute shaders FAIL	: 0
+-----------------------------
+Compute Total		: 1
+-----------------------------
+
+Geometry shaders OK	: 1
+Geometry shaders FAIL	: 0
+-----------------------------
+Geometry Total		: 1
+-----------------------------
+
+Total OK		: 14
 Total FAIL		: 0
-Total SHADERS		: 4
+Total SHADERS		: 14
 =============================
 
 SUCCESSFULLY COMPILED ALL SHADERS TO SPIR-V.

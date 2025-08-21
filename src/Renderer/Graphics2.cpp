@@ -102,7 +102,7 @@ namespace Fluxon {
 		else if (presenting_queue_result != VK_SUCCESS)
 			std::cout << "\033[1;31m [DRAW FRAME]\033[0m: " << "Failed to Present Image" << std::endl;
 
-		vk_render_ctx.frameIndex = (vk_render_ctx.frameIndex + 1) % MAX_FRAMES_IN_FLIGHT;
+		vk_render_ctx.frameIndex = (vk_render_ctx.frameIndex + 1) % kMaxFramesInFlight;
 	}
 
 	void Vulkan::WindowResizedRecreateResource(VulkanContext& vk_render_ctx, const Platform::Window& window, VkCommandPool cmd_pool, VkRenderPass render_pass)
@@ -139,13 +139,13 @@ namespace Fluxon {
 		}
 
 
-		void Renderer::Init(Platform::Window& window, Camera* app_cam_ref)
+		void Renderer::Init(Platform::Window& window, EditorCamera* app_cam_ref)
 		{
 			mWindow = &window;
 			if (app_cam_ref)
 				mCamera = app_cam_ref;
 
-			mVulkanContext = Vulkan::CreateVulkanContext(&window, true, DebugCallback);
+			mVulkanContext = Vulkan::VulkanContext::CreateVulkanContext(&window, true, DebugCallback);
 			//mDevice = Vulkan::InitDevice(&window, true, DebugCallback);
 
 			//mDevice.instance = mVulkanContext.instance;t
@@ -159,7 +159,7 @@ namespace Fluxon {
 
 			//CreateForwardRenderPassPipeline();
 			mForwardRenderPass.Init(&mVulkanContext);
-			mFrames.resize(Vulkan::MAX_FRAMES_IN_FLIGHT);
+			mFrames.resize(Vulkan::kMaxFramesInFlight);
 			Vulkan::CreateFrameObjects(&mVulkanContext, mFrames);
 
 			//TODO : later move framebuffer/renderpass out of swap chain 
@@ -205,7 +205,7 @@ namespace Fluxon {
 			GraphicsPipelineSpecification model_gfx_pipeline_spec{};
 			model_gfx_pipeline_spec.vertexShaderPath = "assets/shaders/spirvs/model_shading.vert.spv";
 			model_gfx_pipeline_spec.fragmentShaderPath = "assets/shaders/spirvs/model_shading.frag.spv";
-			model_gfx_pipeline_spec.renderPass = &mForwardRenderPass;
+			model_gfx_pipeline_spec.renderPass = mForwardRenderPass.GetRenderPassHandle();
 			model_gfx_pipeline_spec.descriptorSetLayouts = {
 				mMaterialDescriptorLayout.layoutHandle,
 				mModelSceneDescriptorLayout.layoutHandle,
@@ -218,7 +218,7 @@ namespace Fluxon {
 			GraphicsPipelineSpecification skybox_gfx_pipeline_spec{};
 			skybox_gfx_pipeline_spec.vertexShaderPath = "assets/shaders/spirvs/skybox.vert.spv";
 			skybox_gfx_pipeline_spec.fragmentShaderPath = "assets/shaders/spirvs/skybox.frag.spv";
-			skybox_gfx_pipeline_spec.renderPass = &mForwardRenderPass;
+			skybox_gfx_pipeline_spec.renderPass = mForwardRenderPass.GetRenderPassHandle();
 			skybox_gfx_pipeline_spec.descriptorSetLayouts = {
 				mMaterialDescriptorLayout.layoutHandle,
 				mModelSceneDescriptorLayout.layoutHandle,
@@ -226,7 +226,7 @@ namespace Fluxon {
 			skybox_gfx_pipeline_spec.pushConstantRanges = { };
 
 			skybox_gfx_pipeline_spec.rasterisationCullMode = VK_CULL_MODE_FRONT_BIT;
-			skybox_gfx_pipeline_spec.enableDepthWrite = false;
+			skybox_gfx_pipeline_spec.bEnableDepthWrite = false;
 			skybox_gfx_pipeline_spec.depthCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL;
 			////leave remain data as default 
 			mSkyboxGraphicsPipeline.Init(&mVulkanContext, skybox_gfx_pipeline_spec);
@@ -432,7 +432,7 @@ namespace Fluxon {
 				mCamera->SetLookTarget(mModelDatas[1].transform[3]);
 		}
 
-		void Renderer::DrawScene(Camera* camera, glm::vec3 translate_model, glm::vec3 rotate_axis)
+		void Renderer::DrawScene(EditorCamera* camera, glm::vec3 translate_model, glm::vec3 rotate_axis)
 		{
 			mCamera = camera;
 			uint32_t swapchain_img_idx;
@@ -458,7 +458,7 @@ namespace Fluxon {
 
 			for (size_t i = 0; i < mMeshes.size(); i++)
 			{
-				glm::vec4 cam_and_new_material_sys = glm::vec4(mCamera->position, (i == 1) ? 1 : 0);
+				glm::vec4 cam_and_new_material_sys = glm::vec4(mCamera->GetPosition(), (i == 1) ? 1 : 0);
 				mModelGraphicsPipeline.PushConstant(curr_cmd_buff, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(mModelDatas[0]), sizeof(glm::vec4), (void*)&cam_and_new_material_sys);
 				mModelGraphicsPipeline.PushConstant(curr_cmd_buff, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(mModelDatas[i]), (void*)&mModelDatas[i]);
 				mMeshes[i].Draw(curr_cmd_buff);
@@ -499,17 +499,17 @@ namespace Fluxon {
 
 			if (!mCamera)
 				return;
-			MVP.view = Camera::GetView(*mCamera);
-			MVP.projection = Camera::GetProjection(*mCamera, win_width, win_height);
-			MVP.position = mCamera->position;
+			MVP.view = mCamera->GetView();
+			MVP.projection = mCamera->GetProjection(win_width, win_height);
+			MVP.position = mCamera->GetPosition();
 
-			Vulkan::CopyToMappedMemory(frame_resources.globalCameraUniformBuffer, &MVP, sizeof(MVP));
+			Vulkan::GPUBuffer::CopyToMappedMemory(frame_resources.globalCameraUniformBuffer, &MVP, sizeof(MVP));
 
 			//update light descriptor uniform buffer 
-			Vulkan::CopyToMappedMemory(frame_resources.globalDirectionalLightUniformBuffer, &mDirLight, sizeof(mDirLight));
+			Vulkan::GPUBuffer::CopyToMappedMemory(frame_resources.globalDirectionalLightUniformBuffer, &mDirLight, sizeof(mDirLight));
 
 			//update skybox descriptor uniform buffer 
-			Vulkan::CopyToMappedMemory(frame_resources.globalSkyboxUniformBuffer, &mSkybox, sizeof(mSkybox));
+			Vulkan::GPUBuffer::CopyToMappedMemory(frame_resources.globalSkyboxUniformBuffer, &mSkybox, sizeof(mSkybox));
 
 			//update material 
 #if DEBUG_MAT_HACK
@@ -538,21 +538,21 @@ namespace Fluxon {
 			ImGui::Checkbox("Mouse Cursor", &window_cursor_lock);
 			ImGui::Spacing();
 
-			ImGui::SeparatorText("Camera Properties");
-			if (mCamera)
-			{
-				auto cam_pos = (*mCamera).position;
-				ImGui::Text("Position x: %f, y: %f, z: %f", cam_pos.x, cam_pos.y, cam_pos.z);
-				auto cam_forward = mCamera->forward;
-				ImGui::Text("Forward x: %f, y: %f, z: %f", cam_forward.x, cam_forward.y, cam_forward.z);
-				ImGui::SliderFloat("Move Speed", &mCamera->moveSpeed, 0.01f, 10.0f);
-				ImGui::SliderFloat("Rot Speed", &mCamera->rotSpeed, 0.01f, 1.0f);
-				ImGui::SliderFloat("FOV", &mCamera->fov, 0.0f, 179.0f, "%.1f");
-				ImGui::DragFloat("Near", &mCamera->nearPlane, 0.1f, 0.01f, 50.0f, "%.1f");
-				ImGui::DragFloat("Far", &mCamera->farPlane, 0.1f, 0.0f, 500.0f, "%.1f");
-			}
-			else
-				ImGui::Text("No vaild Camera !!!!!!");
+			//ImGui::SeparatorText("Camera Properties");
+			//if (mCamera)
+			//{
+			//	auto cam_pos = (*mCamera).GetPosition();
+			//	ImGui::Text("Position x: %f, y: %f, z: %f", cam_pos.x, cam_pos.y, cam_pos.z);
+			//	auto cam_forward = mCamera->GetForward();
+			//	ImGui::Text("Forward x: %f, y: %f, z: %f", cam_forward.x, cam_forward.y, cam_forward.z);
+			//	ImGui::SliderFloat("Move Speed", &mCamera->moveSpeed, 0.01f, 10.0f);
+			//	ImGui::SliderFloat("Rot Speed", &mCamera->rotSpeed, 0.01f, 1.0f);
+			//	ImGui::SliderFloat("FOV", &mCamera->GetFovY(), 0.0f, 179.0f, "%.1f");
+			//	ImGui::DragFloat("Near", &mCamera->GetNearZ(), 0.1f, 0.01f, 50.0f, "%.1f");
+			//	ImGui::DragFloat("Far", &mCamera->mFarZ, 0.1f, 0.0f, 500.0f, "%.1f");
+			//}
+			//else
+			//	ImGui::Text("No vaild Camera !!!!!!");
 
 
 			ImGui::SeparatorText("Renderer Properties");
@@ -625,8 +625,8 @@ namespace Fluxon {
 			vkDestroyDescriptorSetLayout(mVulkanContext.device, mSkyboxDescriptorLayout.layoutHandle, nullptr);
 			vkDestroyDescriptorSetLayout(mVulkanContext.device, mMaterialDescriptorLayout.layoutHandle, nullptr);
 
-			//Vulkan::DestroyDevice(&mDevice, true);
-			Vulkan::DestroyVulkanContext(&mVulkanContext, true);
+	
+			mVulkanContext.DestroyVulkanContext(true);
 		}
 
 		bool Renderer::Model_Transform_Editor_Panel_UI(glm::mat4& transform)

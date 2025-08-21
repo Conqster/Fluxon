@@ -32,7 +32,7 @@ private:
 
 	
 	std::array<Fluxon::GPUStructures::Model, 2> mModelDatas;
-	Fluxon::Camera mCamera;
+	Fluxon::EditorCamera mCamera;
 	UI_System mImGuiUISystem;
 
 	Fluxon::Platform::Window mWindow;
@@ -69,6 +69,7 @@ private:
 #if USE_NEW_SCENE_RUNTIME
 		mSceneRuntime.Init(mWindow, &mCamera);
 		InitSystems(mSceneRuntime.GetVulkanContext(), mSceneRuntime.GetFrames()[0].globalDescriptorPool, mSceneRuntime.GetScene().GetForwardRenderPass()->GetRenderPassHandle());
+		mSceneRuntime.SetIMGUI(mImGuiUISystem);
 #else
 		mRenderer.Init(mWindow, &mCamera);
 		InitSystems(mRenderer.GetVulkanContext(), mRenderer.GetFrames()[0].globalDescriptorPool, mRenderer.GetForwardRenderPass().GetRenderPassHandle());
@@ -80,20 +81,21 @@ private:
 	void MainLoop() {
 
 		//glfwGetTime returns time in seconds
-		double last_frame_time = glfwGetTime() * 1000.0f;
+		double last_frame_time = glfwGetTime();/// *1000.0f;
 		//while (!glfwWindowShouldClose(mWindow)) {
 		while (!Fluxon::Platform::ShouldWindowClose(&mWindow))
 		{
 
 			//glfwGetTime returns time in seconds
-			double curr_frame_time = glfwGetTime() * 1000.0f;
-			mCurrFrameDT = curr_frame_time - last_frame_time;
+			double curr_frame_time = glfwGetTime();// *1000.0f;
+			mCurrFrameDT = (curr_frame_time - last_frame_time) * 1000.0f;
 			last_frame_time = curr_frame_time;
 
 			glfwPollEvents();
 
 #if USE_NEW_SCENE_RUNTIME
-			mSceneRuntime.Update(mCurrFrameDT, &mWindow, &mCamera);
+			mSceneRuntime.Update(GetFrameTimeInSeconds(), &mWindow, &mCamera);
+			//mSceneRuntime.Update(mCurrFrameDT, &mWindow, &mCamera);
 #else
 			mRenderer.DrawScene(&mCamera, mTranslateModelBy, mModelRotateAxis);
 #endif // USE_NEW_SCENE_RUNTIME
@@ -216,9 +218,9 @@ private:
 		vk_imgui_props.physicalDevice = d.physicalDevice;
 		vk_imgui_props.device = d.device;
 		Fluxon::Vulkan::QueueFamilyIndices queue_families = Fluxon::Vulkan::Utils::FindDeviceQueueFamilies(d);
-		if (!queue_families.graphicsFamily.has_value())
+		if (!queue_families.graphicsAndComputeFamily.has_value())
 			throw std::runtime_error("Faild to find graphics queue fgamily for ImGui!!!!!!");
-		vk_imgui_props.graphicsQueueFamily = queue_families.graphicsFamily.value();
+		vk_imgui_props.graphicsQueueFamily = queue_families.graphicsAndComputeFamily.value();
 		vk_imgui_props.graphicsQueue = d.graphicsQueue;
 		//vk_imgui_props.descriptorPool = mDescriptorPool;
 		vk_imgui_props.descriptorPool = desc_pool;
@@ -247,7 +249,7 @@ private:
 
 
 
-	void TranslateCamera(Fluxon::InputSystem::Input& input_sys_inst, Fluxon::Camera& cam, float delta_sec, glm::vec3 translate_by = glm::vec3(1.0f)) {
+	void TranslateCamera(Fluxon::InputSystem::Input& input_sys_inst, Fluxon::EditorCamera& cam, float delta_sec, glm::vec3 translate_by = glm::vec3(1.0f)) {
 
 		
 		if (Fluxon::Platform::IsCursorLocked(&mWindow))
@@ -264,20 +266,20 @@ private:
 			glm::vec3 displacement = glm::vec3(0.0f);
 
 			if (input_sys_inst.GetKey(Fluxon::InputSystem::IKeyCode::W))
-				cam.Translate(cam.forward, delta_sec);
+				cam.Translate(cam.GetForward(), delta_sec);
 			if (input_sys_inst.GetKey(Fluxon::InputSystem::IKeyCode::S))
-				cam.Translate(-cam.forward, delta_sec);
+				cam.Translate(-cam.GetForward(), delta_sec);
 
 			if (input_sys_inst.GetKey(Fluxon::InputSystem::IKeyCode::A))
-				cam.Translate(-cam.right, delta_sec);
+				cam.Translate(-cam.GetRight(), delta_sec);
 			if (input_sys_inst.GetKey(Fluxon::InputSystem::IKeyCode::D))
-				cam.Translate(cam.right, delta_sec);
+				cam.Translate(cam.GetRight(), delta_sec);
 
 
 			if (input_sys_inst.GetKey(Fluxon::InputSystem::IKeyCode::Q))
-				cam.Translate(cam.up, delta_sec);
+				cam.Translate(cam.GetUp(), delta_sec);
 			if (input_sys_inst.GetKey(Fluxon::InputSystem::IKeyCode::E))
-				cam.Translate(-cam.up, delta_sec);
+				cam.Translate(-cam.GetUp(), delta_sec);
 
 		}
 

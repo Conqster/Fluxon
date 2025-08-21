@@ -2166,9 +2166,9 @@
 //		ImGui::Text("Forward x: %f, y: %f, z: %f", cam_forward.x, cam_forward.y, cam_forward.z);
 //		ImGui::SliderFloat("Move Speed", &mCamera.moveSpeed, 0.01f, 10.0f);
 //		ImGui::SliderFloat("Rot Speed", &mCamera.rotSpeed, 0.01f, 1.0f);
-//		ImGui::SliderFloat("FOV", &mCamera.fov, 0.0f, 179.0f, "%.1f");
-//		ImGui::DragFloat("Near", &mCamera.nearPlane, 0.1f, 0.01f, 50.0f, "%.1f");
-//		ImGui::DragFloat("Far", &mCamera.farPlane, 0.1f, 0.0f, 500.0f, "%.1f");
+//		ImGui::SliderFloat("FOV", &mCamera.mFovY, 0.0f, 179.0f, "%.1f");
+//		ImGui::DragFloat("Near", &mCamera.mNearZ, 0.1f, 0.01f, 50.0f, "%.1f");
+//		ImGui::DragFloat("Far", &mCamera.mFarZ, 0.1f, 0.0f, 500.0f, "%.1f");
 //
 //		ImGui::End();
 //	}
@@ -2193,9 +2193,9 @@
 //			cam.Translate(-cam.forward, delta_sec);
 //
 //		if (input_sys_inst.GetKey(GLFW_KEY_A))
-//			cam.Translate(-cam.right, delta_sec);
+//			cam.Translate(-cam.mRight, delta_sec);
 //		if (input_sys_inst.GetKey(GLFW_KEY_D))
-//			cam.Translate(cam.right, delta_sec);
+//			cam.Translate(cam.mRight, delta_sec);
 //
 //
 //		if (input_sys_inst.GetKey(GLFW_KEY_Q))

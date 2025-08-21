@@ -4,6 +4,10 @@
 
 namespace Fluxon {
 
+
+
+
+
 	struct MaterialDescriptor
 	{
 		enum class ETextureMap : uint32_t
@@ -49,6 +53,12 @@ namespace Fluxon {
 			mat_reso.gpuMaterial = Vulkan::PBRMaterial::CreatePBRMaterialMaps(vk_ctx, cmd_pool, mat_reso.materialDesc.pbrPaths, mat_reso.materialDesc.format, mat_reso.materialDesc.anisotropicSampling);
 
 			return mat_reso;
+		}
+
+
+		static void DestroyMaterialResource(Vulkan::VulkanContext* vk_ctx, MaterialResource& mat_reso) {
+			
+			Vulkan::PBRMaterial::DestoryPBRMaterial(vk_ctx, mat_reso.gpuMaterial);
 		}
 	};
 

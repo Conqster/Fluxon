@@ -6,6 +6,11 @@
 
 #include "Resources/MeshResource.h"
 
+//namespace Fluxon {
+//#define MAKE_PROPERTY_SERIALISABLE(Type) friend struct YAML::convert<Type>;
+//
+//}
+
 namespace YAML {
 
 	template<>
@@ -53,40 +58,143 @@ namespace YAML {
 			scale = node["mScale"].as<glm::vec3>();
 			//transform_comp.transform = glm::translate(glm::mat4(1.0f), translate) *
 			//	//glm::rotate()
-			//	glm::scale(glm::mat4(1.0f), scale);
+			//	glm::mScale(glm::mat4(1.0f), mScale);
 			transform_comp.transform = Fluxon::Utils::ComposeTransform(translate, glm::quat(glm::radians(rotation)), scale);
 			return true;
 		}
 	};
 
+
+	template<>
+	struct convert<Fluxon::ECameraType> {
+		static Node encode(const Fluxon::ECameraType& camera_type)
+		{
+			Node node;
+
+			switch (camera_type)
+			{
+			case Fluxon::ECameraType::Perspective:
+				node = "Perspective";
+				break;
+			case Fluxon::ECameraType::Orthographic:
+				node = "Orthographic";
+				break;
+			default:
+				node = "Unknown";
+				break;
+			}
+
+			return node;
+		}
+
+
+		static bool decode(const Node& node, Fluxon::ECameraType& camera_type)
+		{
+			std::string& value = node.as<std::string>();
+
+			if (value == "Perspective")
+				camera_type = Fluxon::ECameraType::Perspective;
+			else if (value == "Orthographic")
+				camera_type = Fluxon::ECameraType::Orthographic;
+			else
+				return false;
+
+
+			return true;
+		}
+	};
+
+
 	template<>
 	struct convert<Fluxon::Camera> {
 		static Node encode(const Fluxon::Camera& camera) {
 			Node node;
-			node["position"] = camera.position;
-			node["forward"] = camera.forward;
-			node["up"] = camera.up;
-			node["right"] = camera.right;
-			node["fov"] = camera.fov;
-			node["nearPlane"] = camera.nearPlane;
-			node["farPlane"] = camera.farPlane;
-			node["moveSpeed"] = camera.moveSpeed;
-			node["rotSpeed"] = camera.rotSpeed;
+			node["mPosition"] = camera.mPosition;
+			node["mForward"] = camera.mForward;
+			node["mFovY"] = camera.mFovY;
+			node["mNearZ"] = camera.mNearZ;
+			node["mFarZ"] = camera.mFarZ;
+			node["mType"] = camera.mType;
 			return node;
 		}
 
 		static bool decode(const Node& node, Fluxon::Camera& camera)
 		{
-			camera.position = node["position"].as<glm::vec3>();
-			camera.forward = node["forward"].as<glm::vec3>();
-			camera.up = node["up"].as<glm::vec3>();
-			camera.right = node["right"].as<glm::vec3>();
-			camera.fov = node["fov"].as<float>();
-			camera.nearPlane = node["nearPlane"].as<float>();
-			camera.farPlane = node["farPlane"].as<float>();
-			camera.moveSpeed = node["moveSpeed"].as<float>();
-			camera.rotSpeed = node["rotSpeed"].as<float>();
+			camera.mPosition = node["mPosition"].as<glm::vec3>();
+			camera.mForward = node["mForward"].as<glm::vec3>();
+			camera.mFovY = node["mFovY"].as<float>();
+			camera.mNearZ = node["mNearZ"].as<float>();
+			camera.mFarZ = node["mFarZ"].as<float>();
+			camera.mType = node["mType"].as<Fluxon::ECameraType>();
 
+
+			return true;
+		}
+	};
+
+
+	template<>
+	struct convert<Fluxon::DynamicCamera> {
+		static Node encode(const Fluxon::DynamicCamera& camera) {
+			Node node;
+			node["mPosition"] = camera.mPosition;
+			node["mForward"] = camera.mForward;
+			node["mUp"] = camera.mUp;
+			node["mRight"] = camera.mRight;
+			node["mFovY"] = camera.mFovY;
+			node["mNearZ"] = camera.mNearZ;
+			node["mFarZ"] = camera.mFarZ;
+			node["mType"] = camera.mType;
+			return node;
+		}
+
+		static bool decode(const Node& node, Fluxon::DynamicCamera& camera)
+		{
+			camera.mPosition = node["mPosition"].as<glm::vec3>();
+			camera.mForward = node["mForward"].as<glm::vec3>();
+			camera.mUp = node["mUp"].as<glm::vec3>();
+			camera.mRight = node["mRight"].as<glm::vec3>();
+			camera.mFovY = node["mFovY"].as<float>();
+			camera.mNearZ = node["mNearZ"].as<float>();
+			camera.mFarZ = node["mFarZ"].as<float>();
+			camera.mType = node["mType"].as<Fluxon::ECameraType>();
+			return true;
+		}
+	};
+
+	template<>
+	struct convert<Fluxon::EditorCamera> {
+		static Node encode(const Fluxon::EditorCamera& camera) {
+			Node node;
+			node["mPosition"] = camera.mPosition;
+			node["mForward"] = camera.mForward;
+			node["mUp"] = camera.mUp;
+			node["mRight"] = camera.mRight;
+			node["mFovY"] = camera.mFovY;
+			node["mNearZ"] = camera.mNearZ;
+			node["mFarZ"] = camera.mFarZ;
+			node["mMoveSpeed"] = camera.mMoveSpeed;
+			node["mRotSpeed"] = camera.mRotSpeed;
+			node["mType"] = camera.mType;
+			return node;
+		}
+
+		static bool decode(const Node& node, Fluxon::EditorCamera& camera)
+		{
+			Fluxon::Camera* base_cam = static_cast<Fluxon::Camera*>(&camera);
+			camera.mPosition = node["mPosition"].as<glm::vec3>();
+			camera.mForward = node["mForward"].as<glm::vec3>();
+			camera.mUp = node["mUp"].as<glm::vec3>();
+			camera.mRight = node["mRight"].as<glm::vec3>();
+			camera.mFovY = node["mFovY"].as<float>();
+			camera.mNearZ = node["mNearZ"].as<float>();
+			camera.mFarZ = node["mFarZ"].as<float>();
+			if(node["mType"])
+				camera.mType = node["mType"].as<Fluxon::ECameraType>();
+			if(node["mMoveSpeed"])
+				camera.mMoveSpeed = node["mMoveSpeed"].as<float>();
+			if(node["mRotSpeed"])
+				camera.mRotSpeed = node["mRotSpeed"].as<float>();
 
 			return true;
 		}
@@ -443,6 +551,7 @@ namespace YAML {
 			component_node["mTransformComponent"] = *scene_node.GetTransformComponent();
 			
 			node["Components"] = component_node;
+			node["mAnimateObj"] = scene_node.mAnimateObj;
 
 			return node;
 		}
@@ -477,6 +586,9 @@ namespace YAML {
 				for (uint32_t c : children)
 					scene_node.AddChild(c);
 			}
+
+			if (node["mAnimateObj"])
+				scene_node.mAnimateObj = node["mAnimateObj"].as<bool>();
 
 			return true;
 		}

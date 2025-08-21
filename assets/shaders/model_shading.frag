@@ -9,9 +9,9 @@ in VS_OUT
 	layout(location = 2) vec3 fragPos;
 	layout(location = 3) vec3 viewPos;
 	layout(location = 4) vec3 normal;
+	layout(location = 5) vec4 fragPosLightSpace;
 }fs_in;
 
-layout(set = 1, binding = 1) uniform sampler2D inTexSampler;
 
 layout(set = 0, binding = 0) uniform sampler2D albedoMap;
 layout(set = 0, binding = 1) uniform sampler2D normalMap;
@@ -27,7 +27,8 @@ layout(set = 0, binding = 3) uniform MatHack
 
 
 
-
+layout(set = 1, binding = 1) uniform sampler2D inTexSampler;
+layout(set = 1, binding = 3) uniform sampler2D uShadowMap;
 //extract into a struct later 
 layout(set = 1, binding = 2) uniform DirectionalLight
 {
@@ -76,6 +77,7 @@ float G_Smith(float NoV, float NoL, float roughness);
 vec3 CookTorranceBRDF(vec3 N, vec3 V, vec3 L, float roughness, vec3 F0);
 
 vec3 RetriveNormalFromMap(sampler2D map, vec2 coord, vec3 frag_world_pos, vec3 frag_nor);
+float DirShadowCalculation(vec4 shadow_coord, float bias);
 
 
 void main()
@@ -169,6 +171,7 @@ void main()
 		if(uSkybox._padding == 0)
 		{
 			base_colour *= pow(texture(inTexSampler, vFragTexCoord).rgb, vec3(2.2f));
+			//base_colour *= pow(texture(uShadowMap, vFragTexCoord).rgb, vec3(2.2f));
 		}
 		else if(uSkybox._padding == 1)
 		{
@@ -218,15 +221,17 @@ void main()
 }
 
 
+
+
 vec3 ComputeDirectionalLight(vec3 N, vec3 V, vec3 base_colour)
 {
-	vec3 ambient = 0.2f * uDirLight.colour * base_colour;
+	vec3 ambient = 0.0512f * uDirLight.colour * base_colour;
 
 	//diffuse component
-	vec3 Ld = normalize(uDirLight.direction);//light direction
+	vec3 Ld = normalize(-uDirLight.direction);//light direction
 	//Lambert cosine law
 	float factor = max(dot(N, Ld), 0.0f);
-	vec3 diffuse = 0.7f * uDirLight.colour * factor * base_colour; 
+	vec3 diffuse = uDirLight.colour * factor * base_colour; 
 	
 	
 	
@@ -236,10 +241,46 @@ vec3 ComputeDirectionalLight(vec3 N, vec3 V, vec3 base_colour)
 	vec3 H = normalize(Ld + V);
 	specularity = pow(max(dot(N, H), 0.0f), uDirLight.shinness);
 
-	vec3 specular = 0.7f * uDirLight.colour * specularity;
+	vec3 specular = uDirLight.colour * specularity;
 	
+	float bias = max(0.0005f * (1.0f - dot(N, Ld)), 0.00225f);
+	float shadow = DirShadowCalculation(fs_in.fragPosLightSpace, bias);
+	
+	//return vec3(1.0f - shadow) * vec3(0.0f, 1.0f, 0.0f) * factor;
 	//return diffuse + specular;
-	return ambient + diffuse + specular;
+	return ambient + ((1.0f - shadow) * diffuse + specular);
+	//return ambient + diffuse + specular;
+}
+
+float DirShadowCalculation(vec4 shadow_coord, float bias)
+{
+	//project texture coordinate & fecth the center sample
+	vec3 p = shadow_coord.xyz / shadow_coord.w;
+
+	//z depth is already in range [0,1]
+	p.xy = p.xy * 0.5f + 0.5f;
+
+    float shadow = 0.0f;
+
+//	float closestDepth = texture(uShadowMap, p.xy).r;
+//	float currentDepth = p.z;
+//    shadow = currentDepth > closestDepth + 0.005f  ? 1.0f : 0.0f;
+//	return shadow;
+
+	//Using PCF
+    vec2 texelSize = 1.0f / textureSize(uShadowMap, 0);
+    for(int x = -1; x <= 1; ++x)
+    {
+        for(int y = -1; y <= 1; ++y)
+        {
+            //float pcfDepth = texture(uShadowMap, p.xy + vec2(x, y) * texelSize).r;
+            float pcfDepth = texture(uShadowMap, p.xy + vec2(x, y) * texelSize).r;
+            shadow += p.z - bias > pcfDepth ? 1.0f : 0.0f;
+        }
+    }
+    shadow /= 9.0f;
+    
+    return shadow;
 }
 
 vec3 ReflectedSkybox(samplerCube skybox_map, vec3 vdir, vec3 nor, float object_reflectivity)

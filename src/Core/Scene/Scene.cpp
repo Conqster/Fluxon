@@ -47,7 +47,31 @@ namespace Fluxon {
 				auto& render_comp = *node->GetRenderableComponent();
 
 				if (render_comp.visible)
-				{
+				{ 
+					//animate model
+					if (node->mAnimateObj)
+					{
+						auto& transform = node->GetTransformComponent()->transform;
+						glm::quat quat;
+						glm::vec3 scale;
+						glm::vec3 translate;
+						Utils::DecomposeTransform(transform, translate, quat, scale);
+						glm::vec3 euler = glm::degrees(glm::eulerAngles(quat));
+						euler += glm::vec3(0.0f, 1.0f, 0.0f) * delta_time * 0.05f;
+
+						glm::vec3 delta_euler = euler - glm::degrees(glm::eulerAngles(quat));
+
+						glm::quat qx = glm::angleAxis(glm::radians(delta_euler.x), glm::vec3(1, 0, 0));
+						glm::quat qy = glm::angleAxis(glm::radians(delta_euler.y), glm::vec3(0, 1, 0));
+						glm::quat qz = glm::angleAxis(glm::radians(delta_euler.z), glm::vec3(0, 0, 1));
+
+						glm::quat delta_quat = qy * qx * qz;
+						quat = glm::normalize(delta_quat * quat);
+						transform = Utils::ComposeTransform(translate, quat, scale);
+
+						//transform = glm::rotate(transform, glm::radians(delta_time * 0.25f), glm::vec3(0.0f, 1.0f, 0.0f));
+					}
+
 					render_comp.renderPrimitiveData.GPUModel.transform = node->GetWorldTransform();
 
 
@@ -76,7 +100,7 @@ namespace Fluxon {
 
 		//}
 
-
+		//return;
 		//Add empty object for skybox  
 		SceneRenderPrimitive skybox_render_obj{};
 		skybox_render_obj.pipelineIdx = 1; //<---skybox pipelines
@@ -85,6 +109,8 @@ namespace Fluxon {
 		//skybox_render_obj.mesh = mGlobalMeshes[0].get(); //<-- get a default cube 
 		skybox_render_obj.material = nullptr;
 		skybox_render_obj.GPUModel.transform = glm::mat4(1.0f);
+
+		skybox_render_obj.maskLayer &= ~ERenderMask::RM_ShadowCaster;  //<--- should not cast shadow 
 
 		for (auto& buckets : scene_ctx.renderPassBuckets)
 			buckets.renderObjects.push_back(skybox_render_obj);

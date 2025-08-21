@@ -40,6 +40,8 @@ namespace Fluxon {
 		static MeshResource& CreateNewSphere(const Vulkan::VulkanContext* vk_ctx, VkCommandPool cmd_pool, MeshResource& mesh_reso);
 		static MeshResource& CreateNewPlane(const Vulkan::VulkanContext* vk_ctx, VkCommandPool cmd_pool, MeshResource& mesh_reso);
 		static MeshResource& CreateNewModel(const Vulkan::VulkanContext* vk_ctx, VkCommandPool cmd_pool, MeshResource& mesh_reso, const std::string& file_path);
+
+		static void DestroyMeshResource(VkDevice device, MeshResource& mesh_resource);
 	};
 
 

@@ -24,6 +24,16 @@ namespace Fluxon {
 			void BindDescriptorSets(VkCommandBuffer cmd_buff, const VkDescriptorSet* pdescriptor_sets, uint32_t first_set = 0, uint32_t set_count = 1) override {
 				vkCmdBindDescriptorSets(cmd_buff, VK_PIPELINE_BIND_POINT_GRAPHICS, mLayout, first_set, set_count, pdescriptor_sets, 0, nullptr);
 			}
+			/// <summary>
+			/// qUCIK HACK TEST
+			/// </summary>
+			/// <param name="cmd_buff"></param>
+			/// <param name="pdescriptor_sets"></param>
+			/// <param name="first_set"></param>
+			/// <param name="set_count"></param>
+			void BindComputeDescriptorSets(VkCommandBuffer cmd_buff, const VkDescriptorSet* pdescriptor_sets, uint32_t first_set = 0, uint32_t set_count = 1) {
+				vkCmdBindDescriptorSets(cmd_buff, VK_PIPELINE_BIND_POINT_COMPUTE, mLayout, first_set, set_count, pdescriptor_sets, 0, nullptr);
+			}
 			void PushConstant(VkCommandBuffer cmd_buff, VkShaderStageFlags stage_flag, uint32_t offset, uint32_t size, const void* pValues) override {
 				vkCmdPushConstants(cmd_buff, mLayout, stage_flag, offset, size, pValues);
 			}

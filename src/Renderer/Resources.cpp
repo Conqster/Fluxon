@@ -21,7 +21,7 @@ namespace Fluxon {
 				vkFreeMemory(device, img_sampler.memory, nullptr);
 			}
 
-			VkImageView CreateImageView(VkDevice device, VkImage image, VkImageViewType view_type, VkFormat format, VkImageAspectFlags aspect_flags, uint32_t face_layer_count) {
+			VkImageView CreateImageView(VkDevice device, VkImage image, VkImageViewType view_type, VkFormat format, VkImageAspectFlags aspect_flags, uint32_t layer_count) {
 				VkImageViewCreateInfo img_view_create_info{};
 				img_view_create_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
 				img_view_create_info.image = image;
@@ -38,7 +38,7 @@ namespace Fluxon {
 				img_view_create_info.subresourceRange.baseMipLevel = 0;
 				img_view_create_info.subresourceRange.levelCount = 1;
 				img_view_create_info.subresourceRange.baseArrayLayer = 0;
-				img_view_create_info.subresourceRange.layerCount = face_layer_count;// 1;
+				img_view_create_info.subresourceRange.layerCount = layer_count;// 1;
 
 				VkImageView temp_image_view;
 				if (vkCreateImageView(device, &img_view_create_info, nullptr, &temp_image_view) != VK_SUCCESS)
@@ -174,7 +174,8 @@ namespace Fluxon {
 				Utils::EndSingleTimeCommand(vk_ctx, cmd_pool, cmd_buffer);
 			}
 
-			VkSampler CreateTextureSampler(const VulkanContext* vk_ctx, bool enable_anisotropy, VkFilter filter_mode, VkSamplerAddressMode address_mode) {
+			VkSampler CreateTextureSampler(const VulkanContext* vk_ctx, bool enable_anisotropy, VkFilter filter_mode, VkSamplerAddressMode address_mode, VkBorderColor border_colour, 
+				bool enable_compare_op, VkCompareOp compare_op) {
 				//later pass in unique parameters 
 				//like 
 				//filters 
@@ -198,10 +199,10 @@ namespace Fluxon {
 
 				sampler_create_info.anisotropyEnable = static_cast<VkBool32>(enable_anisotropy);
 				sampler_create_info.maxAnisotropy = (enable_anisotropy) ? retrived_physical_device_prop.limits.maxSamplerAnisotropy : 1.0f;
-				sampler_create_info.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
+				sampler_create_info.borderColor = border_colour;
 				sampler_create_info.unnormalizedCoordinates = VK_FALSE;
-				sampler_create_info.compareEnable = VK_FALSE;
-				sampler_create_info.compareOp = VK_COMPARE_OP_ALWAYS;
+				sampler_create_info.compareEnable = static_cast<VkBool32>(enable_compare_op);
+				sampler_create_info.compareOp = compare_op;
 
 				sampler_create_info.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
 				sampler_create_info.mipLodBias = 0.0f;
@@ -233,11 +234,11 @@ namespace Fluxon {
 
 				GPUBuffer staging_buffer;
 
-				CreateBuffer(vk_ctx, image_size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+				GPUBuffer::CreateBuffer(vk_ctx, image_size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
 					VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
 					staging_buffer);
 
-				FillBufferWithData(vk_ctx->device, staging_buffer, pixels);
+				GPUBuffer::FillBufferWithData(vk_ctx->device, staging_buffer, pixels);
 
 				stbi_image_free(pixels);
 
@@ -249,8 +250,7 @@ namespace Fluxon {
 
 				Utils::TransitionImageLayout(vk_ctx, cmd_pool,
 					image_sampler.image, format,
-					VK_IMAGE_LAYOUT_UNDEFINED,
-					VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+					Utils::kImageUndefinedToDstOptimal);
 
 				CopyBufferToImage(vk_ctx, cmd_pool, staging_buffer.buffer,
 					image_sampler.image,
@@ -259,10 +259,9 @@ namespace Fluxon {
 
 				Utils::TransitionImageLayout(vk_ctx, cmd_pool,
 					image_sampler.image, format,
-					VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-					VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+					Utils::kImageDstOptimalToShaderOptimalRead);
 
-				DestoryBuffer(vk_ctx->device, staging_buffer);
+				GPUBuffer::DestoryBuffer(vk_ctx->device, staging_buffer);
 
 				//image view for sampler
 				image_sampler.imageView = CreateImageView2D(vk_ctx->device, image_sampler.image, format, VK_IMAGE_ASPECT_COLOR_BIT);
@@ -307,12 +306,12 @@ namespace Fluxon {
 				GPUBuffer staging_buffer;
 
 				//size_t offset_of_pixels = 0; // VkDeviceSize total_image_face_size = 0; {offset_of_pixels == total_image_face_size}
-				CreateBuffer(vk_ctx, static_cast<VkDeviceSize>(offset_of_pixels), VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+				GPUBuffer::CreateBuffer(vk_ctx, static_cast<VkDeviceSize>(offset_of_pixels), VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
 					VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
 					staging_buffer);
 
 				//fill staging buffer with pixels data
-				FillBufferWithData(vk_ctx->device, staging_buffer, pixels.data());
+				GPUBuffer::FillBufferWithData(vk_ctx->device, staging_buffer, pixels.data());
 				//stbi_image_free(pixels_data);
 
 				CreateImage2D_4_CUBE(vk_ctx, static_cast<uint32_t>(tex_width), static_cast<uint32_t>(tex_height),
@@ -321,11 +320,12 @@ namespace Fluxon {
 					VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
 					image_sampler.image, image_sampler.memory);
 
+				Utils::LayoutTransitionInfo transition_info = Utils::kImageUndefinedToDstOptimal;
+				transition_info.subRangeLayerCount = static_cast<uint32_t>(file_paths.size());
+
 				Utils::TransitionImageLayout(vk_ctx, cmd_pool,
 					image_sampler.image, format,
-					VK_IMAGE_LAYOUT_UNDEFINED,
-					VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-					static_cast<uint32_t>(file_paths.size()));
+					transition_info);
 
 
 				CopyBufferToMultiImages(vk_ctx, cmd_pool, staging_buffer.buffer,
@@ -333,13 +333,13 @@ namespace Fluxon {
 					per_face_size, file_paths.size());
 
 
+				transition_info = Utils::kImageDstOptimalToShaderOptimalRead;
+				transition_info.subRangeLayerCount = static_cast<uint32_t>(file_paths.size());
 				Utils::TransitionImageLayout(vk_ctx, cmd_pool,
 					image_sampler.image, format,
-					VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-					VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-					static_cast<uint32_t>(file_paths.size()));
+					transition_info);
 
-				DestoryBuffer(vk_ctx->device, staging_buffer);
+				GPUBuffer::DestoryBuffer(vk_ctx->device, staging_buffer);
 
 				//create image view for sampler and sampler
 				image_sampler.imageView = CreateImageViewCube(vk_ctx->device, image_sampler.image, format, VK_IMAGE_ASPECT_COLOR_BIT);

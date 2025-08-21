@@ -148,6 +148,30 @@ namespace Fluxon {
 			mRootNode = root_node;
 		}
 
+		void DestroyScene(Vulkan::VulkanContext* vk_ctx)
+		{
+			for (auto& pipelines : mGlobalGraphicsPipelines)
+				pipelines.Cleanup(vk_ctx);
+
+			mGlobalRenderPass.get()->Cleanup(vk_ctx);
+
+			for (auto& mesh : GetAllocatedMeshResources())
+				//mesh->gpuMesh.Cleanup();
+				MeshResource::DestroyMeshResource(vk_ctx->device, *mesh);
+
+
+			for (auto& image_sampler : mGlobalImageSamplers)
+				Vulkan::Resources::DestoryTextureImageSampler(vk_ctx->device, image_sampler);
+			
+			
+			for (auto& mat : GetAllocatedMaterialResources())
+				MaterialResource::DestroyMaterialResource(vk_ctx, *mat);
+
+
+			for (auto& desc_set_spec : mGlobalDescriptorSetSpecifications)
+				vkDestroyDescriptorSetLayout(vk_ctx->device, desc_set_spec.layoutHandle, nullptr);
+		}
+
 
 		SceneResources mSceneResources;
 	private:
@@ -171,7 +195,7 @@ namespace Fluxon {
 		//stack allocated memory
 		SceneResourceAllocator::AllocatorSlotPool<RenderableComponent, 16> mRenderablePool{};
 		//SceneResourceAllocator::AllocatorSlotPool<Vulkan::Mesh, 10> mMeshPool{};
-		SceneResourceAllocator::AllocatorSlotPool<MeshResource, 10> mMeshPool{};
+		SceneResourceAllocator::AllocatorSlotPool<MeshResource, 13> mMeshPool{};
 		//SceneResourceAllocator::AllocatorSlotPool<Vulkan::PBRMaterial, 2> mPBRMaterialPool;
 		SceneResourceAllocator::AllocatorSlotPool<MaterialResource, 5> mPBRMaterialPool;
 		SceneResourceAllocator::AllocatorSlotPool<SceneNode, 16> mFlatSceneNode;
@@ -521,6 +545,9 @@ namespace Fluxon {
 			child.mParent = parent.idx;
 			parent.mChildren.push_back(child.idx);
 		}
+
+
+
 
 
 	};

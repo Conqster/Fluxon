@@ -46,6 +46,7 @@ namespace Fluxon {
 		 void Update(SceneContext& scene_ctx);
 	
 		class Scene* mScene = nullptr;
+		bool mAnimateObj = true;
 
 		bool HasRenderableComponent() const {
 			return mRenderableComponentIdx.has_value();
@@ -101,6 +102,8 @@ namespace Fluxon {
 		TransformComponent mTransformComponent;
 		uint32_t mParent = -1;
 		std::optional<uint32_t> mRenderableComponentIdx;
+
+		
 
 		friend Scene;
 

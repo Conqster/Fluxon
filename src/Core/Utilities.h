@@ -348,6 +348,60 @@ namespace Fluxon {
 
 
 
+		static std::array<glm::vec3, 24> GenerateAABBEdges(const glm::vec3& min, const glm::vec3& max) {
 
+			 const std::array<glm::vec3, 8> corners = {
+				glm::vec3(min.x, min.y, min.z),
+				{max.x, min.y, min.z},
+				{max.x, max.y, min.z},
+				{min.x, max.y, min.z},
+				{min.x, min.y, max.z},
+				{max.x, min.y, max.z},
+				{max.x, max.y, max.z},
+				{min.x, max.y, max.z}
+			};
+
+			const std::array<int, 24> edgeIndices = {
+				0, 1, 1, 2, 2, 3, 3, 0,
+				4, 5, 5, 6, 6, 7, 7, 4,
+				0, 4, 1, 5, 2, 6, 3, 7
+			};
+
+			std::array<glm::vec3, 24> edges;
+			for (int i = 0; i < 24; ++i)
+				edges[i] = corners[edgeIndices[i]];
+
+			return edges;
+		}
+
+		static std::array<glm::vec3, 24> GenerateAABBEdges(const glm::mat4& world_transform, const glm::vec3& min, const glm::vec3& max) {
+
+			const std::array<glm::vec3, 8> corners = {
+			   glm::vec3(min.x, min.y, min.z),
+			   {max.x, min.y, min.z},
+			   {max.x, max.y, min.z},
+			   {min.x, max.y, min.z},
+			   {min.x, min.y, max.z},
+			   {max.x, min.y, max.z},
+			   {max.x, max.y, max.z},
+			   {min.x, max.y, max.z}
+			};
+
+			std::array<glm::vec3, 8> transformed_corners;
+			for (size_t i = 0; i < 8; ++i)
+				transformed_corners[i] = glm::vec3(world_transform * glm::vec4(corners[i], 1.0f));
+
+			const std::array<int, 24> edgeIndices = {
+				0, 1, 1, 2, 2, 3, 3, 0,
+				4, 5, 5, 6, 6, 7, 7, 4,
+				0, 4, 1, 5, 2, 6, 3, 7
+			};
+
+			std::array<glm::vec3, 24> edges;
+			for (int i = 0; i < 24; ++i)
+				edges[i] = transformed_corners[edgeIndices[i]];
+
+			return edges;
+		}
 	} //#Utils
 }//#Fluxon

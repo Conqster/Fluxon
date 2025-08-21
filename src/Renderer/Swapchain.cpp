@@ -155,11 +155,11 @@ namespace Fluxon {
 
 			QueueFamilyIndices indices = Utils::FindDeviceQueueFamilies(*vk_ctx);
 			uint32_t queue_family_indices[] = {
-				indices.graphicsFamily.value(),
+				indices.graphicsAndComputeFamily.value(),
 				indices.presentFamily.value()
 			};
 
-			if (indices.graphicsFamily != indices.presentFamily)
+			if (indices.graphicsAndComputeFamily != indices.presentFamily)
 			{
 				swapchain_create_info.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
 				swapchain_create_info.queueFamilyIndexCount = 2;
@@ -237,7 +237,8 @@ namespace Fluxon {
 
 
 			//THE TRANSITION DONT NEED TO BE EXPLICITY 
-			Utils::TransitionImageLayout(mVulkanContext, command_pool, mDepth.image, depth_format, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
+			//Utils::TransitionImageLayout(mVulkanContext, command_pool, mDepth.image, depth_format, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
+			Utils::TransitionImageLayout(mVulkanContext, command_pool, mDepth.image, depth_format, Utils::kImageUndefinedToDepthStencilOptimal);
 		}
 
 

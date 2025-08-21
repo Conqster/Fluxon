@@ -1,0 +1,207 @@
+#version 450 core
+
+layout (binding = 0) uniform EmitterUBO
+{
+	//mat4 worldTransform; used in vert drawing
+	//particles are compute in local space
+	mat4 worldTransform;
+	vec3 boundsMin;
+	float deltaTime;
+	vec3 boundsMax;
+	float boundsCollisionImpluse;
+
+	vec3 particleStartColour;
+	int emitterFrameCount;
+	vec3 particleEndColour;
+	float particleLifeTime;
+
+	float startSpeed;
+	float particleMass;
+};
+
+struct Particle
+{
+	vec3 position;
+	float lifeTime;
+	vec3 velocity;
+	float age;
+	vec3 acceleration;
+	float mass;
+	vec4 colour;
+};
+
+
+layout(std140, binding = 1) readonly buffer ParticleSSBOIn{
+	Particle particlesIn[];
+};
+
+
+
+layout(std140, binding = 2) buffer ParticleSSBOOut{
+	Particle particlesOut[];
+};
+
+layout(std140, binding = 3) buffer AtomicSpawnCounter{
+	int emittedInFrame;
+};
+
+const int kSemi_Euler_Integration = 0;
+const int kVerlet_Integration = 1;
+
+int integrationMode = kSemi_Euler_Integration;
+
+layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+//layout(local_size_x = 128, local_size_y = 8, local_size_z = 1) in;
+
+float gravity = -9.8f;
+
+
+vec3 velocities[12] = 
+{
+	 vec3(0, 1, 0),
+    vec3(0.5, 0.866, 0),
+    vec3(-0.5, 0.866, 0),
+    vec3(0, 0.866, 0.5),
+    vec3(0, 0.866, -0.5),
+    vec3(0.5, 0.866, 0.5),
+    vec3(-0.5, 0.866, -0.5),
+    vec3(0.5, 0.866, -0.5),
+    vec3(-0.5, 0.866, 0.5),
+    vec3(0.707, 0.707, 0),
+    vec3(0, 0.707, 0.707),
+    vec3(-0.707, 0.707, 0)
+};
+
+
+//Hash based Random
+float rand(uint seed)
+{
+	seed = (seed ^ 61) ^ (seed >> 16);
+	seed *= 9;
+	seed = seed ^ (seed >> 4);
+	seed *= 0x27d4eb2d;
+	seed = seed ^ (seed >> 15);
+	return float(seed & 0xFFFF) / 65535.0;
+}
+
+void main()
+{
+	uint index = gl_GlobalInvocationID.x;
+	float frame_delta_time = deltaTime;
+
+	//2D local invocation index 
+//	uvec2 local_id = gl_LocalInvocationID.xy;
+//	uvec2 group_id = gl_WorkGroupID.xy;
+//	uvec2 group_size = gl_WorkGroupSize.xy;
+//
+//	uvec2 global_id_2d = group_id * group_size + local_id;
+//
+//	//flatten 2D to 1D 
+//	uint total_width = gl_NumWorkGroups.x  * group_size.x;
+//	uint index = global_id_2d.y * total_width + global_id_2d.x;
+
+	Particle p = particlesIn[index];
+
+	//hack for now
+	if(p.age >= p.lifeTime)
+	{
+		particlesOut[index].position = vec3(0.0f);
+		if(emitterFrameCount > 0)
+		{
+			int count = atomicAdd(emittedInFrame, 1);
+			if(count < emitterFrameCount)
+			{
+				p.position = vec3(0.0f);
+				vec3 noise = vec3(rand(index), rand(index + 1), rand(index + 2)) * 2.0 - 1.0;// * 0.2 - 0.1;
+				vec3 dir = normalize(velocities[index % 12] + noise);
+				p.velocity = dir * startSpeed;
+				//hack to counter the time past in frame as its a new particle
+				p.age = -frame_delta_time;
+				//p.age = 0;
+				p.lifeTime = particleLifeTime;
+				p.mass = particleMass;
+			}
+			else
+				return;
+		}
+		else
+			return;
+	}
+
+	p.age += frame_delta_time;
+	//integrate velocity & position
+	//Numerical Intergration
+	//euler :- Xn+1 = Xn + hf(x,t)
+	//Xn+1 = Xn + hVn
+	//Vn+1 = Vn + h an
+	//X = position
+	//h = change in t,
+	//f(x, t) = gt + V0
+
+	//
+	//Vn+1 = Vn + h an
+	//Xn+1 = Xn + hVn+1
+	//semi-implicit euler 
+	//rather than in standard euler where the next position is based on current velocity ?(leding to instable and enery gain sim)
+	//semi-implicit compute next velocity using curr state & new velocity determines next position
+	//which is better for conserve energy in sim
+	vec3 velocity;
+	vec3 new_pos;
+	if(integrationMode == kSemi_Euler_Integration)
+	{
+		velocity  = p.velocity + p.acceleration * frame_delta_time;
+		new_pos = p.position + velocity * frame_delta_time;
+	}
+	else
+	{
+		new_pos = 2.0f * p.position - velocity + p.acceleration * deltaTime * deltaTime;
+		velocity = p.position; //<-- velocity serve as previous position
+	}
+	//reset acceleration 
+	p.acceleration = vec3(0.0f);
+
+	//simple boundary collsion
+	//clamop speed to threshold 
+	float speed_threshold = 160.0f;
+	float speed = length(velocity);
+	velocity = normalize(velocity) * min(speed, speed_threshold);
+
+
+	//collsion check 
+	for(int i = 0; i < 3; ++i)
+	{
+		if(new_pos[i] < boundsMin[i] || new_pos[i] > boundsMax[i])
+		{
+			velocity[i] *= -boundsCollisionImpluse;
+			//partile back if over shot
+			new_pos[i] = clamp(new_pos[i], boundsMin[i], boundsMax[i]);
+		}
+	}
+	//Apply damping 
+
+	//float colour_ratio = length(velocity) / speed_threshold;
+	float colour_ratio = p.age / p.lifeTime;
+	vec3 colour; 
+	//colour = mix(vec3(0.0f, 1.0f, 0.0f), vec3(1.0f, 0.0f, 0.0f), colour_ratio);
+	colour = mix(particleStartColour, particleEndColour, colour_ratio);
+	
+	//dampling
+	//if(length(velocity) > 0.001f)
+		//velocity *= 0.997988f;
+	
+
+	vec3 local_gravity = (inverse(worldTransform) * vec4(0.0f, gravity, 0.0f, 0.0f)).xyz;// * deltaTime ;
+	p.acceleration += p.mass * local_gravity;
+	//velocity +=  vec3(0.0f, gravity * 0.01f, 0.0f) * deltaTime ;
+
+
+	//write updated particle 
+	particlesOut[index].position = new_pos;
+	particlesOut[index].velocity = velocity;
+	//particlesOut[index].colour = vec4(abs(normalize(velocity)), 1.0f);
+	particlesOut[index].colour = vec4(colour, 1.0f);
+	particlesOut[index].age = p.age;
+	particlesOut[index].lifeTime = p.lifeTime;
+	particlesOut[index].mass = p.mass;
+	particlesOut[index].acceleration = p.acceleration;
+} 
