@@ -8,72 +8,11 @@
 #include "Renderer/Mesh.h"
 #include "Renderer/PBRMaterial.h"
 
+#include "Core/Enums.h"
+
+#include "Core/Geometry/AABB.h"
+
 namespace Fluxon {
-
-	enum class ERenderPassType
-	{
-		RenderPass_None,
-
-		RenderPass_Forward,
-		RenderPass_Shadow
-	};
-
-	enum class ERenderMask : uint32_t
-	{
-		RM_Opaque			= 1 << 0,
-		RM_Transparent		= 1 << 1,
-		RM_ShadowCaster		= 1 << 2,
-		RM_Skybox			= 1 << 3,
-
-		//hack 
-		Count				= 4,
-	};
-
-	inline ERenderMask operator|(ERenderMask lhs, ERenderMask rhs) {
-		return static_cast<ERenderMask>(static_cast<int32_t>(lhs) |
-										static_cast<int32_t>(rhs));
-	}
-
-	inline ERenderMask& operator|=(ERenderMask& lhs, ERenderMask rhs) {
-		lhs = lhs | rhs;
-		return lhs;
-	}
-
-	inline ERenderMask operator&(ERenderMask lhs, ERenderMask rhs) {
-		return static_cast<ERenderMask>(static_cast<int32_t>(lhs) &
-			static_cast<int32_t>(rhs));
-	}
-	inline ERenderMask& operator&=(ERenderMask& lhs, ERenderMask rhs) {
-		lhs = lhs & rhs;
-		return lhs;
-	}
-
-	inline ERenderMask operator~(ERenderMask v) {
-		return static_cast<ERenderMask>(~static_cast<int32_t>(v));
-	}
-
-	inline ERenderMask operator^(ERenderMask lhs, ERenderMask rhs) {
-		return static_cast<ERenderMask>(static_cast<int32_t>(lhs) ^
-			static_cast<int32_t>(rhs));
-	}
-	inline ERenderMask& operator^=(ERenderMask& lhs, ERenderMask& rhs) {
-		lhs = lhs ^ rhs;
-		return lhs;
-	}
-
-
-	static std::unordered_map<ERenderMask, std::string> RenderMaskLayerNamesMap =
-	{
-			{ERenderMask::RM_Opaque, "Opaque Layer"},
-			{ERenderMask::RM_Transparent, "Transparent Layer"},
-			{ERenderMask::RM_ShadowCaster, "Shadow Caster Layer"},
-			{ERenderMask::RM_Skybox, "Skybox Layer"},
-	};
-
-	static std::array<const char*, static_cast<size_t>(ERenderMask::Count)> RenderMaskLayerNames()
-	{
-		return {"Opaque Layer", "Transparent Layer", "ShadowCaster Layer", "Skybox Layer"};
-	}
 
 
 	struct PushConstantSpecification
@@ -105,7 +44,8 @@ namespace Fluxon {
 	/// </summary>
 	struct SceneRenderPrimitive
 	{
-		ERenderMask maskLayer = ERenderMask::RM_Opaque | ERenderMask::RM_ShadowCaster;
+		//ERenderMask maskLayer = ERenderMask::RM_Opaque | ERenderMask::RM_ShadowCaster;
+		RenderMasks renderMask = ERenderBits::OpaqueBit | ERenderBits::ShadowCasterBit;
 		uint32_t pipelineIdx = 0;
 		uint32_t descSetSpecificationIdx = 0;
 		//SceneNode* node = nullptr;
@@ -120,7 +60,7 @@ namespace Fluxon {
 
 	struct RenderPassBucket
 	{
-		ERenderPassType type = ERenderPassType::RenderPass_None;
+		ERenderPassType type = ERenderPassType::None;
 		Vulkan::IRenderPass* pass = nullptr;
 		std::vector<Vulkan::DescriptorSetSpecification> descSetSpecifications; //<-- min 1
 
@@ -150,13 +90,64 @@ namespace Fluxon {
 
 	struct LightShadowData
 	{
-		float viewSize = 7.0f;
-		float near = 0.1f;
-		float far = 70.0f;
 
+		Camera camera = Camera(ECameraType::Orthographic, 0.1f, 70.0f, 7.0f);
+
+		float GetNearZ() {
+			return camera.GetNearZ();
+		}
+
+		float GetFarZ() {
+			return camera.GetFarZ();
+		}
+
+		float GetViewScale() {
+			return camera.GetScale();
+		}
+
+		const glm::vec3& GetSampleOrigin() const {
+			return camera.GetPosition();
+		}
+
+		const glm::vec3& GetViewPosition() const {
+			return camera.GetPosition();
+		}
+
+		glm::mat4 const GetView() const {
+			return camera.GetView();
+		}
+
+		glm::mat4 const GetProjection() const {
+			return camera.GetOrthoProjection(1.0f); //<-- aspect ratio 1.0 equal width and height
+		}
+
+		void UpdateCameraPosition(glm::vec3 light_dir) {
+			glm::vec3 normalised_light_dir = glm::normalize(light_dir);
+			camera.SetForward(normalised_light_dir);
+
+			glm::vec3 light_pos = sampleOrigin - (normalised_light_dir * sampleShadowDistance);
+			camera.SetPosition(light_pos);
+		}
+
+
+		glm::vec3 GetViewOrthoVolumeBoundsMin() {
+			return { -camera.GetScale(), -camera.GetScale(), camera.GetNearZ() };
+		}
+
+		glm::vec3 GetViewOrthoVolumeBoundsMax() {
+			return { camera.GetScale(), camera.GetScale(), camera.GetFarZ() };
+		}
+
+		AABB GetViewOrthoVolumeAABBBounds() {
+			return
+			{
+				{ -camera.GetScale(), -camera.GetScale(), camera.GetNearZ() },
+				{ camera.GetScale(), camera.GetScale(), camera.GetFarZ() }
+			};
+		}
 
 		glm::vec3 sampleOrigin = glm::vec3(0.0f);
-		glm::vec3 sampleWorldUp = glm::vec3(0.0f, 1.0f, 0.0f);
+		//glm::vec3 sampleWorldUp = glm::vec3(0.0f, 1.0f, 0.0f);
 		float sampleShadowDistance = 54.0f;
 
 		float depthBiasConstantFactor = 1.75f; // Optional

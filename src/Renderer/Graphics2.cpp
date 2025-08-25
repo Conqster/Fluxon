@@ -145,7 +145,7 @@ namespace Fluxon {
 			if (app_cam_ref)
 				mCamera = app_cam_ref;
 
-			mVulkanContext = Vulkan::VulkanContext::CreateVulkanContext(&window, true, DebugCallback);
+			mVulkanContext = Vulkan::VulkanContext::CreateVulkanContext(&window, {}, DebugCallback);
 			//mDevice = Vulkan::InitDevice(&window, true, DebugCallback);
 
 			//mDevice.instance = mVulkanContext.instance;t

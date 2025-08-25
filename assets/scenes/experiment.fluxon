@@ -1,19 +1,19 @@
 mName: New Vulkan Test Scene (Sandbox)
 Has camera: true
 Main Camera:
-  mPosition: {x: -29.3208, y: 10.827334, z: 7.044653}
-  mForward: {x: 0.91928315, y: -0.3417193, z: -0.19531107}
-  mUp: {x: 0.3141368, y: 0.88322794, z: -0.06674156}
-  mRight: {x: 0.19531107, y: -0, z: 0.91928315}
+  mPosition: {x: -29.067022, y: 25.84677, z: 22.83033}
+  mForward: {x: 0.6163869, y: -0.49148223, z: -0.6152338}
+  mUp: {x: 0.3029432, y: 0.7584454, z: -0.30237648}
+  mRight: {x: 0.6152338, y: -0, z: 0.6163869}
   mFovY: 45
-  mNearZ: 0.1
+  mNearZ: 10
   mFarZ: 100
-  mMoveSpeed: 9.995
+  mMoveSpeed: 20
   mRotSpeed: 0.728
   mType: Perspective
 Has direction light: true
 Directional light:
-  direction: {x: -1.9, y: -0.9, z: -2}
+  direction: {x: -2, y: -1.5, z: 2}
   enable: true
   colour: {x: 0.85784316, y: 0.42051134, z: 0.42051134}
   shinness: 128
@@ -55,8 +55,8 @@ SceneNodes:
       mRenderableComponentIdx: 0
       mTransformComponent:
         mPosition: {x: 0.76, y: 1.01, z: 0}
-        mRotation: {x: -180, y: 13.704288, z: -180}
-        mScale: {x: 1.277413, y: 1, z: 1.277413}
+        mRotation: {x: 180, y: 1.5382085, z: 180}
+        mScale: {x: 1.3163518, y: 1, z: 1.3163518}
     mAnimateObj: true
   3:
     mName: Mesh-Node_Spher
@@ -68,8 +68,8 @@ SceneNodes:
       mRenderableComponentIdx: 1
       mTransformComponent:
         mPosition: {x: 0, y: -0.81, z: 0}
-        mRotation: {x: -0.0061409124, y: -57.15897, z: -179.99995}
-        mScale: {x: 1.4161243, y: 1.6141564, z: 1.1145616}
+        mRotation: {x: -0.0061855162, y: -69.11739, z: -179.99988}
+        mScale: {x: 1.4376402, y: 1.6458538, z: 1.1198628}
     mAnimateObj: true
   4:
     mName: Mesh-Node_Dragon_Mode
@@ -81,8 +81,8 @@ SceneNodes:
       mRenderableComponentIdx: 2
       mTransformComponent:
         mPosition: {x: 0.15, y: -1.34, z: -2.96}
-        mRotation: {x: 7.077794, y: -78.74688, z: 0.9554635}
-        mScale: {x: 0.027013224, y: 0.020029988, z: 0.027011616}
+        mRotation: {x: 7.7053328, y: -67.35167, z: 0.3967909}
+        mScale: {x: 0.027205754, y: 0.020039182, z: 0.027191827}
     mAnimateObj: true
   5:
     mName: Mesh-Node_Plane
@@ -95,7 +95,7 @@ SceneNodes:
       mTransformComponent:
         mPosition: {x: -6.29, y: -1.65, z: 0}
         mRotation: {x: 179.97992, y: 88.728355, z: -87.17206}
-        mScale: {x: 30.000088, y: 30.000174, z: 30.000168}
+        mScale: {x: 30.000088, y: 30.000185, z: 30.000177}
     mAnimateObj: false
   6:
     mName: Mesh-Node0_Cube2
@@ -107,8 +107,8 @@ SceneNodes:
       mRenderableComponentIdx: 4
       mTransformComponent:
         mPosition: {x: -2.97, y: 0.06, z: 0}
-        mRotation: {x: 25.423735, y: -30.28339, z: 16.699003}
-        mScale: {x: 1.2069975, y: 0.999983, z: 1.1898915}
+        mRotation: {x: 29.445799, y: -19.100775, z: 15.2842045}
+        mScale: {x: 1.208027, y: 0.9999996, z: 1.1909325}
     mAnimateObj: true
   7:
     mName: Mesh-Node0_Cube
@@ -120,8 +120,8 @@ SceneNodes:
       mRenderableComponentIdx: 5
       mTransformComponent:
         mPosition: {x: 2.86, y: 0, z: 0}
-        mRotation: {x: 103.74977, y: -19.478025, z: -87.690544}
-        mScale: {x: 1.2451155, y: 1.1329825, z: 1.3422757}
+        mRotation: {x: 91.56957, y: -18.40803, z: -84.026405}
+        mScale: {x: 1.2575649, y: 1.1410199, z: 1.3591112}
     mAnimateObj: true
   8:
     mName: Mesh-Node0_Cube
@@ -146,8 +146,8 @@ SceneNodes:
       mRenderableComponentIdx: 7
       mTransformComponent:
         mPosition: {x: 1.95, y: 1.44, z: 1}
-        mRotation: {x: -22.897, y: -32.43687, z: 53.75176}
-        mScale: {x: 1.2171873, y: 0.9999999, z: 1.2113829}
+        mRotation: {x: -12.524929, y: -25.094025, z: 49.329773}
+        mScale: {x: 1.2232038, y: 0.9999996, z: 1.2124503}
     mAnimateObj: true
   10:
     mName: Mesh-Node0_Cube
@@ -159,8 +159,8 @@ SceneNodes:
       mRenderableComponentIdx: 8
       mTransformComponent:
         mPosition: {x: -2.3, y: 1.88, z: -2.36}
-        mRotation: {x: -93.450386, y: 78.322296, z: 86.85309}
-        mScale: {x: 1.1351141, y: 1.5841467, z: 1.3794647}
+        mRotation: {x: -44.88262, y: 73.713646, z: 134.15808}
+        mScale: {x: 1.145331, y: 1.6113671, z: 1.3901844}
     mAnimateObj: true
   11:
     mName: Mesh-Node0_Cube7
@@ -171,9 +171,9 @@ SceneNodes:
     Components:
       mRenderableComponentIdx: 9
       mTransformComponent:
-        mPosition: {x: -0.83, y: 1.86, z: 1.9}
-        mRotation: {x: 12.587492, y: -47.998146, z: 22.135447}
-        mScale: {x: 1.2567225, y: 0.9999153, z: 1.233716}
+        mPosition: {x: -7.99, y: 2.19, z: -1.86}
+        mRotation: {x: 18.35322, y: -37.107872, z: 18.497803}
+        mScale: {x: 1.2589155, y: 0.9999451, z: 1.2356317}
     mAnimateObj: true
 Renderable Components:
   - id: 0

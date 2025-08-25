@@ -102,18 +102,19 @@ namespace Fluxon {
 			tex_spec.height = mVoxelImageExtent.height;
 			tex_spec.depth = mVoxelImageDepth;
 			tex_spec.usage = ETextureUsageBits::Storage;
+			tex_spec.type = ETextureType::Texture2DArray;
+			//tex_spec.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
 			tex_spec.imageAspect = VK_IMAGE_ASPECT_COLOR_BIT;
-			tex_spec.bExplicitImageTransition = true;
-			auto& image_transition = tex_spec.explicitImageTransitionInfo;
+			tex_spec.format = VK_FORMAT_R16_SFLOAT;
+			Utils::LayoutTransitionInfo image_transition{};
 			image_transition.newLayout = VK_IMAGE_LAYOUT_GENERAL;
 			image_transition.dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
 			image_transition.dstAccess = VK_ACCESS_SHADER_WRITE_BIT;
 			image_transition.subRangeLayerCount = mVoxelImageDepth;
+			tex_spec.explicitImageTransitionInfo = image_transition;
 
 			for (auto& voxel_occpancy_tex : mVoxelOccupancyTex)
-			{
 				voxel_occpancy_tex.Create(vk_ctx, cmd_pool, tex_spec);
-			}
 
 
 

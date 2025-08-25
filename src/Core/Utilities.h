@@ -7,6 +7,7 @@
 #include "Renderer/GPUStrutures.h"
 #include <glm/gtx/quaternion.hpp>
 
+#include "Geometry/AABB.h"
 
 namespace Fluxon {
 
@@ -403,5 +404,47 @@ namespace Fluxon {
 
 			return edges;
 		}
+
+
+		static std::array<glm::vec3, 24> GenerateAABBEdges(const glm::mat4& world_transform, const AABB& aabb) {
+
+			const std::array<glm::vec3, 8>& corners = aabb.GetCorners();
+
+			std::array<glm::vec3, 8> transformed_corners;
+			for (size_t i = 0; i < 8; ++i)
+				transformed_corners[i] = glm::vec3(world_transform * glm::vec4(corners[i], 1.0f));
+
+			const std::array<int, 24> edgeIndices = {
+				0, 1, 1, 2, 2, 3, 3, 0,
+				4, 5, 5, 6, 6, 7, 7, 4,
+				0, 4, 1, 5, 2, 6, 3, 7
+			};
+
+			std::array<glm::vec3, 24> edges;
+			for (int i = 0; i < 24; ++i)
+				edges[i] = transformed_corners[edgeIndices[i]];
+
+			return edges;
+		}
+
+		static glm::mat4 DirectionalBasis(const glm::vec3& forward)
+		{
+			const glm::vec3 fwd = glm::normalize(forward);
+			glm::vec3 up = glm::vec3(0.0f, 1.0f, 0.0f);
+
+			if (glm::abs(glm::dot(fwd, up)) > 0.99f)
+				up = glm::vec3(1.0f, 0.0f, 0.0f);
+
+			const glm::vec3 right = glm::normalize(glm::cross(up, fwd));
+			up = glm::cross(fwd, right);
+			return glm::mat4(
+				glm::vec4(right, 0.0f), 
+				glm::vec4(up, 0.0f),
+				glm::vec4(fwd, 0.0f),
+				glm::vec4(0.0f, 0.0f, 0.0f, 1.0f)
+			);
+		}
+
+
 	} //#Utils
 }//#Fluxon

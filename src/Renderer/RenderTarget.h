@@ -11,41 +11,6 @@ namespace Fluxon {
 	namespace Vulkan {
 
 
-
-
-		//inline ERenderTargetBits operator|(ERenderTargetBits lhs, ERenderTargetBits rhs) {
-		//	return static_cast<ERenderTargetBits>(static_cast<int32_t>(lhs) |
-		//		static_cast<int32_t>(rhs));
-		//}
-
-		//inline ERenderTargetBits& operator|=(ERenderTargetBits& lhs, ERenderTargetBits rhs) {
-		//	lhs = lhs | rhs;
-		//	return lhs;
-		//}
-
-		//inline ERenderTargetBits operator&(ERenderTargetBits lhs, ERenderTargetBits rhs) {
-		//	return static_cast<ERenderTargetBits>(static_cast<int32_t>(lhs) &
-		//		static_cast<int32_t>(rhs));
-		//}
-		//inline ERenderTargetBits& operator&=(ERenderTargetBits& lhs, ERenderTargetBits rhs) {
-		//	lhs = lhs & rhs;
-		//	return lhs;
-		//}
-
-		//inline ERenderTargetBits operator~(ERenderTargetBits v) {
-		//	return static_cast<ERenderTargetBits>(~static_cast<int32_t>(v));
-		//}
-
-		//inline ERenderTargetBits operator^(ERenderTargetBits lhs, ERenderTargetBits rhs) {
-		//	return static_cast<ERenderTargetBits>(static_cast<int32_t>(lhs) ^
-		//		static_cast<int32_t>(rhs));
-		//}
-		//inline ERenderTargetBits& operator^=(ERenderTargetBits& lhs, ERenderTargetBits& rhs) {
-		//	lhs = lhs ^ rhs;
-		//	return lhs;
-		//}
-
-
 		struct RenderTargetSpec
 		{
 			VkExtent2D extent{};

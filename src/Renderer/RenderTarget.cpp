@@ -30,7 +30,7 @@ namespace Fluxon {
 			usage |= spec.explicitUsage;
 
 			
-			if (spec.targetMask.Contains(ERenderTargetBits::Array2D))
+			if (!spec.targetMask.Contains(ERenderTargetBits::Array2D))
 			{
 				Resources::CreateImage2D(vk_ctx, render_target.extent.width, render_target.extent.height, 
 					render_target.format, spec.imageTiling, usage,

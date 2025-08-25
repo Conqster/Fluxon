@@ -3,6 +3,7 @@
 #include "Core/Core.h"
 
 #include <vulkan/vulkan.h>
+#include <vulkan/vulkan.hpp>
 #include "Core/Enums.h"
 
 #include "VulkanUtilities.h"
@@ -13,6 +14,8 @@ namespace Fluxon {
 		struct VulkanContext;
 	}
 }
+
+
 
 namespace Fluxon {
 
@@ -29,16 +32,16 @@ namespace Fluxon {
 			TextureUsageFlags usage = ETextureUsageBits::DepthAttachment | ETextureUsageBits::Sampled;
 			ETextureType type = ETextureType::Texture2D;
 
-			ETextureUsageBits usage_bit = ETextureUsageBits::DepthAttachment | ETextureUsageBits::Sampled;
 
 			VkMemoryPropertyFlags imageMemProperty = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
 
-			bool bExplicitImageLayout = false;
-			bool bExplicitImageTransition = false;
-			Utils::LayoutTransitionInfo explicitImageTransitionInfo{};
-			VkImageLayout imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+			std::optional<VkImageLayout> imageLayout = {};
+			std::optional<Utils::LayoutTransitionInfo> explicitImageTransitionInfo = {};
 			VkImageTiling imageTiling = VK_IMAGE_TILING_OPTIMAL;
 			VkImageAspectFlagBits imageAspect = VK_IMAGE_ASPECT_DEPTH_BIT;
+
+
+			
 
 			bool bEnableSamplerAnisotropy = false;
 			VkFilter samplerFilterMode = VK_FILTER_NEAREST;
@@ -59,9 +62,9 @@ namespace Fluxon {
 			}
 
 			//Getters 
-			const VkSampler& const GetSampler() { return mSampler; }
-			const VkImageView& const GetImageView() { return mImageView; }
-			const VkImageLayout& const GetImageLayout() { return mImageLayout; }
+			const VkSampler& GetSampler() const { return mSampler; }
+			const VkImageView& GetImageView() const { return mImageView; }
+			const VkImageLayout& GetImageLayout() const { return mImageLayout; }
 		private:
 			u32 mWidth						= 0;
 			u32 mHeight						= 0;
@@ -71,7 +74,9 @@ namespace Fluxon {
 			VkDeviceMemory mMemory			= VK_NULL_HANDLE;
 			VkImageView mImageView			= VK_NULL_HANDLE;
 			VkSampler mSampler				= VK_NULL_HANDLE;
-			VkImageLayout mImageLayout;//<--- LATER STORE A SLIM ENUM as u16 as with mFormat
+			VkImageLayout mImageLayout		= {};	//<--- LATER STORE A SLIM ENUM as u16 as with mFormat
+													// but the other thing to keep in mind is that, image layout is only backend
+													// as its will not necessary exposed to engine user like Format 
 
 			ETextureType mTextureType		= ETextureType::Texture2D;
 			TextureUsageFlags mUsageFlags	= ETextureUsageBits::DepthAttachment | ETextureUsageBits::Sampled;

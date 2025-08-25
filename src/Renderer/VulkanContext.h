@@ -39,6 +39,36 @@ namespace Fluxon {
 
 
 
+
+		struct VulkanContextSpecification
+		{
+			//vulkan app 
+			u32 applicationVersion					= VK_API_VERSION_1_0;
+			u32 apiVersion							= VK_MAKE_VERSION(1, 0, 0);
+
+			bool bEnableSamplerAnisotropy			= true;
+			bool bEnableSeparateDepthStencil		= true;
+			bool bEnableGeometryShader				= false;
+			bool bEnableFragmentStoresAndAtomics	= false;
+
+			bool bEnableValidationLayer				= true;
+
+			//Not implemented yet
+			bool bImageCubeArray					= false;
+			//Not implemented yet
+			bool bEnableMultiViewport				= false;
+			//Not implemented yet
+			bool bVertexPipelineStoresAndAtomics	= false;
+			//Not implemented yet
+			bool bEnableDepthClamp					= false;
+			//Not implemented yet
+			bool bEnableDepthBiasClamp				= false;
+			//Not implemented yet
+			bool bEnableTessellationShader			= false;
+		};
+
+
+
 		struct VulkanContext
 		{
 			VkInstance instance							= VK_NULL_HANDLE;
@@ -63,7 +93,8 @@ namespace Fluxon {
 			double frameDT								= 0.0;
 			VkDescriptorSetLayout dummyDescSetLayout	= VK_NULL_HANDLE;
 
-			static VulkanContext CreateVulkanContext(Platform::Window* window, bool enable_validation_layers, PFN_vkDebugUtilsMessengerCallbackEXT debug_callback);
+			//static VulkanContext CreateVulkanContext(Platform::Window* window, bool enable_validation_layers, PFN_vkDebugUtilsMessengerCallbackEXT debug_callback);
+			static VulkanContext CreateVulkanContext(Platform::Window* window, const VulkanContextSpecification& ctx_spec, PFN_vkDebugUtilsMessengerCallbackEXT debug_callback);
 			void DestroyVulkanContext(bool has_debugger);
 
 			VkPhysicalDeviceLimits GetPhysicalDeviceLimits()
@@ -86,9 +117,9 @@ namespace Fluxon {
 
 		private:
 			//parameter data extraction 
-			void CreateVkInstance(const Platform::Window* window, bool enable_validation_layers, PFN_vkDebugUtilsMessengerCallbackEXT debug_callback);
+			void CreateVkInstance(const Platform::Window* window, const VulkanContextSpecification& ctx_spec, PFN_vkDebugUtilsMessengerCallbackEXT debug_callback);
 			void CreateSurface(const Platform::Window* window);
-			void CreateLogicalDevice();
+			void CreateLogicalDevice(const VulkanContextSpecification& ctx_spec);
 
 
 			void InitDebugMessenger(PFN_vkDebugUtilsMessengerCallbackEXT debug_callback);

@@ -11,7 +11,7 @@ namespace Fluxon {
 		std::vector<uint16_t> indices_data;
 
 		//mesh_reso.descriptor.id ==== handle extrenally 
-		mesh_reso.descriptor.primitiveType = EPrimitiveMeshType::EPMT_Cube;
+		mesh_reso.descriptor.primitiveType = EPrimitiveMeshType::Cube;
 
 		Utils::GetUnitCubeVertices(vertices_data, indices_data);
 		mesh_reso.gpuMesh.Generate(vk_ctx, cmd_pool, vertices_data, indices_data);
@@ -25,7 +25,7 @@ namespace Fluxon {
 		std::vector<uint16_t> indices_data;
 
 		//mesh_reso.descriptor.id ==== handle extrenally 
-		mesh_reso.descriptor.primitiveType = EPrimitiveMeshType::EPMT_Sphere;
+		mesh_reso.descriptor.primitiveType = EPrimitiveMeshType::Sphere;
 
 		Utils::GenerateSphereVertices(vertices_data, indices_data);
 		mesh_reso.gpuMesh.Generate(vk_ctx, cmd_pool, vertices_data, indices_data);
@@ -39,7 +39,7 @@ namespace Fluxon {
 		std::vector<uint16_t> indices_data;
 
 		//mesh_reso.descriptor.id ==== handle extrenally 
-		mesh_reso.descriptor.primitiveType = EPrimitiveMeshType::EPMT_Plane;
+		mesh_reso.descriptor.primitiveType = EPrimitiveMeshType::Plane;
 
 		Utils::GetUnitQuadVertices(vertices_data, indices_data);
 		mesh_reso.gpuMesh.Generate(vk_ctx, cmd_pool, vertices_data, indices_data);
@@ -50,7 +50,7 @@ namespace Fluxon {
 	MeshResource& MeshResource::CreateNewModel(const Vulkan::VulkanContext* vk_ctx, VkCommandPool cmd_pool, MeshResource& mesh_reso, const std::string& file_path)
 	{
 		// TODO: insert return statement here
-		mesh_reso.descriptor.primitiveType = EPrimitiveMeshType::EPMT_ModelMesh;
+		mesh_reso.descriptor.primitiveType = EPrimitiveMeshType::ModelMesh;
 		mesh_reso.descriptor.modelPath = file_path;
 		ModelLoader quick_loader;
 		auto [model_vertices, model_indices] = quick_loader.LoadAsVerticesData(file_path, true, false);

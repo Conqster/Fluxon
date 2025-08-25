@@ -208,19 +208,19 @@ namespace YAML {
 
 			switch (primitive_type)
 			{
-			case Fluxon::EPrimitiveMeshType::EPMT_None:
+			case Fluxon::EPrimitiveMeshType::None:
 				node = "None";
 				break;
-			case Fluxon::EPrimitiveMeshType::EPMT_Cube:
+			case Fluxon::EPrimitiveMeshType::Cube:
 				node = "Cube";
 				break;
-			case Fluxon::EPrimitiveMeshType::EPMT_ModelMesh:
+			case Fluxon::EPrimitiveMeshType::ModelMesh:
 				node = "ModelMesh";
 				break;
-			case Fluxon::EPrimitiveMeshType::EPMT_Sphere:
+			case Fluxon::EPrimitiveMeshType::Sphere:
 				node = "Sphere";
 				break;
-			case Fluxon::EPrimitiveMeshType::EPMT_Plane:
+			case Fluxon::EPrimitiveMeshType::Plane:
 				node = "Plane";
 				break;
 			default:
@@ -237,15 +237,15 @@ namespace YAML {
 			std::string& value = node.as<std::string>();
 			
 			if (value == "None")
-				primitive_type = Fluxon::EPrimitiveMeshType::EPMT_None;
+				primitive_type = Fluxon::EPrimitiveMeshType::None;
 			else if (value == "Cube")
-				primitive_type = Fluxon::EPrimitiveMeshType::EPMT_Cube;
+				primitive_type = Fluxon::EPrimitiveMeshType::Cube;
 			else if (value == "ModelMesh")
-				primitive_type = Fluxon::EPrimitiveMeshType::EPMT_ModelMesh;
+				primitive_type = Fluxon::EPrimitiveMeshType::ModelMesh;
 			else if (value == "Sphere")
-				primitive_type = Fluxon::EPrimitiveMeshType::EPMT_Sphere;
+				primitive_type = Fluxon::EPrimitiveMeshType::Sphere;
 			else if (value == "Plane")
-				primitive_type = Fluxon::EPrimitiveMeshType::EPMT_Plane;
+				primitive_type = Fluxon::EPrimitiveMeshType::Plane;
 			else
 				return false;
 
@@ -263,7 +263,7 @@ namespace YAML {
 
 			switch (mesh_type)
 			{
-			case Fluxon::EMeshType::EMT_Static:
+			case Fluxon::EMeshType::Static:
 				node = "Static";
 				break;
 			default:
@@ -280,7 +280,7 @@ namespace YAML {
 			std::string& value = node.as<std::string>();
 
 			if (value == "Static")
-				mesh_type = Fluxon::EMeshType::EMT_Static;
+				mesh_type = Fluxon::EMeshType::Static;
 			else
 				return false;
 
@@ -298,7 +298,7 @@ namespace YAML {
 			node["id"] = mesh_description.id;
 			node["type"] = mesh_description.type;
 			node["primitiveType"] = mesh_description.primitiveType;
-			if (mesh_description.primitiveType == Fluxon::EPrimitiveMeshType::EPMT_ModelMesh)
+			if (mesh_description.primitiveType == Fluxon::EPrimitiveMeshType::ModelMesh)
 				node["model path"] = mesh_description.modelPath;
 			return node;
 		}
@@ -308,7 +308,7 @@ namespace YAML {
 			mesh_description.id = node["id"].as<int32_t>();
 			mesh_description.type = node["type"].as<Fluxon::EMeshType>();
 			mesh_description.primitiveType = node["primitiveType"].as<Fluxon::EPrimitiveMeshType>();
-			if (mesh_description.primitiveType == Fluxon::EPrimitiveMeshType::EPMT_ModelMesh)
+			if (mesh_description.primitiveType == Fluxon::EPrimitiveMeshType::ModelMesh)
 				mesh_description.modelPath = node["model path"].as<std::string>();
 
 			return true;
@@ -463,18 +463,18 @@ namespace YAML {
 
 			//file paths 
 			Node file_path_map;
-			for (uint32_t i = 0; i < (uint32_t)Fluxon::MaterialDescriptor::ETextureMap::TMap_Count; i++)
+			for (uint32_t i = 0; i < (uint32_t)Fluxon::EPBRTextureMapType::Count; i++)
 			{
-				const auto& map = static_cast<Fluxon::MaterialDescriptor::ETextureMap>(i);
+				const auto& map = static_cast<Fluxon::EPBRTextureMapType>(i);
 				switch (map)
 				{
-				case Fluxon::MaterialDescriptor::ETextureMap::TMap_Albedo:
+				case Fluxon::EPBRTextureMapType::Albedo:
 					file_path_map["Albedo"] = material_reso.pbrPaths[i];
 					break;
-				case Fluxon::MaterialDescriptor::ETextureMap::TMap_Normal:
+				case Fluxon::EPBRTextureMapType::Normal:
 					file_path_map["Normal"] = material_reso.pbrPaths[i];
 					break;
-				case Fluxon::MaterialDescriptor::ETextureMap::TMap_aoRM:
+				case Fluxon::EPBRTextureMapType::aoRM:
 					file_path_map["aoRM"] = material_reso.pbrPaths[i];
 					break;
 				default:
@@ -504,17 +504,17 @@ namespace YAML {
 
 				for(uint32_t i = 0; i < 3; i++)
 				{
-					const auto& map = static_cast<Fluxon::MaterialDescriptor::ETextureMap>(i);
+					const auto& map = static_cast<Fluxon::EPBRTextureMapType>(i);
 					std::string out_string;
 					switch (map)
 					{
-					case Fluxon::MaterialDescriptor::ETextureMap::TMap_Albedo:
-						material_reso.pbrPaths[i] =  std::move(tex_map_node["Albedo"].as<std::string>());
+					case Fluxon::EPBRTextureMapType::Albedo:
+						material_reso.pbrPaths[i] = std::move(tex_map_node["Albedo"].as<std::string>());
 						break;
-					case Fluxon::MaterialDescriptor::ETextureMap::TMap_Normal:
+					case Fluxon::EPBRTextureMapType::Normal:
 						material_reso.pbrPaths[i] = tex_map_node["Normal"].as<std::string>();
 						break;
-					case Fluxon::MaterialDescriptor::ETextureMap::TMap_aoRM:
+					case Fluxon::EPBRTextureMapType::aoRM:
 						material_reso.pbrPaths[i] = tex_map_node["aoRM"].as<std::string>();
 						break;
 					default:

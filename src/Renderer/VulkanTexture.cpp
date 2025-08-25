@@ -12,9 +12,11 @@ namespace Fluxon {
 			mDepth = spec.depth;
 
 			mFormat = spec.format;
-			mImageLayout = spec.imageLayout;
-
-			mTextureType = spec.type;
+	
+			if (spec.imageLayout.has_value())
+				mImageLayout = spec.imageLayout.value();
+			else
+				mImageLayout = GetOptimalImageLayout(spec.usage);
 
 
 			VkImageUsageFlags usage = 0;
@@ -40,7 +42,7 @@ namespace Fluxon {
 			//mRenderer->CreateBuffer(image_size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, staging_buffer);
 
 
-			if(spec.type == ETextureType::Texture2DArray)
+			if(spec.type != ETextureType::Texture2DArray)
 			{
 				Resources::CreateImage2D(vk_ctx, spec.height, spec.height,
 					spec.format, spec.imageTiling, usage,
@@ -59,13 +61,13 @@ namespace Fluxon {
 			}
 
 
-			if (spec.bExplicitImageTransition)
-				Utils::TransitionImageLayout(vk_ctx, cmd_pool, mImage, spec.format, spec.explicitImageTransitionInfo);
+			if (spec.explicitImageTransitionInfo.has_value())
+				Utils::TransitionImageLayout(vk_ctx, cmd_pool, mImage, spec.format, spec.explicitImageTransitionInfo.value());
 			else
 			{
 				Utils::LayoutTransitionInfo transition_info{};
 				transition_info.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-				transition_info.newLayout = spec.bExplicitImageLayout ? spec.imageLayout : GetOptimalImageLayout(spec.usage);
+				transition_info.newLayout = mImageLayout;
 				transition_info.srcStageMask = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
 				//VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT for depth testing before draw
 				//VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT for colour drawing in frag shading bit
@@ -98,13 +100,13 @@ namespace Fluxon {
 				return VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 				break;
 			case ETextureUsageBits::Sampled:
-				return VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+				return VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 				break;
 			case ETextureUsageBits::Storage:
-				return VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+				return VK_IMAGE_LAYOUT_GENERAL;
 				break;
 			case ETextureUsageBits::ImguiView:
-				return VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+				return VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 				break;
 			default:
 				throw std::runtime_error("TextureUsageFlags, format not supported for transition!!!!!");

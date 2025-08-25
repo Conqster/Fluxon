@@ -9,7 +9,7 @@ namespace Fluxon {
 		//current passes
 		//only one passes required : forward pass
 		auto& render_pass_bucket = scene_ctx.renderPassBuckets[0];
-		render_pass_bucket.type = ERenderPassType::RenderPass_Forward;
+		render_pass_bucket.type = ERenderPassType::Forward;
 		render_pass_bucket.pass = GetForwardRenderPass();
 
 		RenderPassBucket::PassPipeline model_pipeline_pass{};
@@ -110,7 +110,8 @@ namespace Fluxon {
 		skybox_render_obj.material = nullptr;
 		skybox_render_obj.GPUModel.transform = glm::mat4(1.0f);
 
-		skybox_render_obj.maskLayer &= ~ERenderMask::RM_ShadowCaster;  //<--- should not cast shadow 
+		//skybox_render_obj.maskLayer &= ~ERenderMask::RM_ShadowCaster;  //<--- should not cast shadow 
+		skybox_render_obj.renderMask.RemoveBit(ERenderBits::ShadowCasterBit);
 
 		for (auto& buckets : scene_ctx.renderPassBuckets)
 			buckets.renderObjects.push_back(skybox_render_obj);

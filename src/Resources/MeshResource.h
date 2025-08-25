@@ -4,28 +4,18 @@
 #include <string>
 #include "Core/Utilities.h"
 
+#include "Core/Enums.h"
+
 namespace Fluxon {
 
-	enum class EMeshType : uint32_t
-	{
-		EMT_Static
-	};
 
-	enum class EPrimitiveMeshType : uint32_t
-	{
-		EPMT_None,
-		EPMT_ModelMesh,			//Loaded from external file
-		EPMT_Cube,
-		EPMT_Sphere,
-		EPMT_Plane
-	};
 
 
 	struct MeshDescriptor
 	{
 		int32_t id = -1;
-		EMeshType type = EMeshType::EMT_Static;
-		EPrimitiveMeshType primitiveType = EPrimitiveMeshType::EPMT_None;
+		EMeshType type = EMeshType::Static;
+		EPrimitiveMeshType primitiveType = EPrimitiveMeshType::None;
 
 		std::string modelPath;
 	};

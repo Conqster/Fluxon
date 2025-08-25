@@ -1,5 +1,5 @@
 
-[21/08/2025  8:34:40.75] Begin Cleaning Old SPIR-V shaders.
+[25/08/2025 11:40:10.02] Begin Cleaning Old SPIR-V shaders.
 debug_line.frag.spv 		-Deleted.
 debug_line.vert.spv 		-Deleted.
 model_shading.frag.spv 		-Deleted.
@@ -14,32 +14,32 @@ shadowDepth.frag.spv 		-Deleted.
 shadowDepth.vert.spv 		-Deleted.
 skybox.frag.spv 		-Deleted.
 skybox.vert.spv 		-Deleted.
-[21/08/2025  8:34:40.88] Completed Cleaning Old SPIR-V shaders.
+[25/08/2025 11:40:10.25] Completed Cleaning Old SPIR-V shaders.
 
  
-[21/08/2025  8:34:40.91] Recompiling shaders to SPIR-V.
+[25/08/2025 11:40:10.27] Recompiling shaders to SPIR-V.
  
-[21/08/2025  8:34:40.93] == Compiling Vertex shaders to SPIR-V.==
-[21/08/2025  8:34:40.94] [VEXTEX] - debug_line.vert 		: OK 
-[21/08/2025  8:34:40.94] [VEXTEX] - model_shading.vert 		: OK 
-[21/08/2025  8:34:40.94] [VEXTEX] - model_voxel.vert 		: OK 
-[21/08/2025  8:34:40.94] [VEXTEX] - particle.vert 		: OK 
-[21/08/2025  8:34:40.94] [VEXTEX] - shadowDepth.vert 		: OK 
-[21/08/2025  8:34:40.94] [VEXTEX] - skybox.vert 		: OK 
+[25/08/2025 11:40:10.29] == Compiling Vertex shaders to SPIR-V.==
+[25/08/2025 11:40:10.29] [VEXTEX] - debug_line.vert 		: OK 
+[25/08/2025 11:40:10.29] [VEXTEX] - model_shading.vert 		: OK 
+[25/08/2025 11:40:10.29] [VEXTEX] - model_voxel.vert 		: OK 
+[25/08/2025 11:40:10.29] [VEXTEX] - particle.vert 		: OK 
+[25/08/2025 11:40:10.29] [VEXTEX] - shadowDepth.vert 		: OK 
+[25/08/2025 11:40:10.29] [VEXTEX] - skybox.vert 		: OK 
  
-[21/08/2025  8:34:41.64] == Compiling Fragment shaders to SPIR-V.==
-[21/08/2025  8:34:41.65] [FRAGMENT] - debug_line.frag 		: OK 
-[21/08/2025  8:34:41.65] [FRAGMENT] - model_shading.frag 		: OK 
-[21/08/2025  8:34:41.65] [FRAGMENT] - model_voxel.frag 		: OK 
-[21/08/2025  8:34:41.65] [FRAGMENT] - particle.frag 		: OK 
-[21/08/2025  8:34:41.65] [FRAGMENT] - shadowDepth.frag 		: OK 
-[21/08/2025  8:34:41.65] [FRAGMENT] - skybox.frag 		: OK 
+[25/08/2025 11:40:11.23] == Compiling Fragment shaders to SPIR-V.==
+[25/08/2025 11:40:11.25] [FRAGMENT] - debug_line.frag 		: OK 
+[25/08/2025 11:40:11.25] [FRAGMENT] - model_shading.frag 		: OK 
+[25/08/2025 11:40:11.25] [FRAGMENT] - model_voxel.frag 		: OK 
+[25/08/2025 11:40:11.25] [FRAGMENT] - particle.frag 		: OK 
+[25/08/2025 11:40:11.25] [FRAGMENT] - shadowDepth.frag 		: OK 
+[25/08/2025 11:40:11.25] [FRAGMENT] - skybox.frag 		: OK 
  
-[21/08/2025  8:34:42.39] == Compiling Compute shaders to SPIR-V.==
-[21/08/2025  8:34:42.39] [COMPUTE] - particle.comp 		: OK 
+[25/08/2025 11:40:12.03] == Compiling Compute shaders to SPIR-V.==
+[25/08/2025 11:40:12.04] [COMPUTE] - particle.comp 		: OK 
  
-[21/08/2025  8:34:42.54] == Compiling Geometry shaders to SPIR-V.==
-[21/08/2025  8:34:42.54] [GEOMETRY] - model_voxel.geom 		: OK 
+[25/08/2025 11:40:12.18] == Compiling Geometry shaders to SPIR-V.==
+[25/08/2025 11:40:12.19] [GEOMETRY] - model_voxel.geom 		: OK 
 
 =============================
 Shader Compilation Summary 

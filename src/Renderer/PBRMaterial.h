@@ -132,7 +132,7 @@ namespace Fluxon {
 				return desc_bindings;
 			}
 #else
-			static  std::array<DescriptorBinding, SHADER_PBR_MATERIAL_MAX_MAPS>& GetDescriptorSetBindings(PBRMaterial& pbr_material, uint32_t set, uint32_t base_binding = 0) {
+			static  std::array<DescriptorBinding, SHADER_PBR_MATERIAL_MAX_MAPS> GetDescriptorSetBindings(PBRMaterial& pbr_material, uint32_t set, uint32_t base_binding = 0) {
 				std::array<DescriptorBinding, SHADER_PBR_MATERIAL_MAX_MAPS> desc_bindings = {
 					Vulkan::DescriptorBinding::MakeImageSampler(set, base_binding + 0, pbr_material.albedo),
 					Vulkan::DescriptorBinding::MakeImageSampler(set, base_binding + 1, pbr_material.normal),

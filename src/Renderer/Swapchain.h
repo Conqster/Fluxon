@@ -28,9 +28,9 @@ namespace Fluxon {
 
 		struct SwapchainSupportDetails
 		{
-			VkSurfaceCapabilitiesKHR capabilities;
-			std::vector<VkSurfaceFormatKHR> formats = {};
-			std::vector<VkPresentModeKHR> presentModes = {};
+			VkSurfaceCapabilitiesKHR capabilities		= {};
+			std::vector<VkSurfaceFormatKHR> formats		= {};
+			std::vector<VkPresentModeKHR> presentModes	= {};
 
 			bool IsSupportSufficent() {
 				return !formats.empty() &&

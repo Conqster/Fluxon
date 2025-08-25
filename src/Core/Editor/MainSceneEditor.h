@@ -115,7 +115,7 @@ namespace Fluxon {
 			ImGui::SeparatorText("Renderable Component");
 			modified |= ImGui::Checkbox("Visible", &render_comp.visible);
 
-			ERenderMask& mask_layer = render_comp.renderPrimitiveData.maskLayer;
+			RenderMasks& render_mask_layer = render_comp.renderPrimitiveData.renderMask;
 			if (ImGui::TreeNode("Render Mask Layer"))
 			{
 
@@ -123,19 +123,21 @@ namespace Fluxon {
 
 				//std::array<bool, 4> selected;//(static_cast<size_t>(ERenderMask::Count));
 				//bool selected;//(static_cast<size_t>(ERenderMask::Count));
-				auto& layers_name = RenderMaskLayerNames();
-				for (uint32_t i = 0; i < static_cast<uint32_t>(ERenderMask::Count); ++i)
+				auto& layers_name = RenderMaskBitsLayerNames();
+				using u_type = std::underlying_type_t<ERenderBits>;
+				for (u_type i = 0; i < static_cast<u_type>(ERenderBits::Count); ++i)
 				{
-					ERenderMask mask = static_cast<ERenderMask>(1 << i);
+					ERenderBits mask = static_cast<ERenderBits>(1 << i);
+					//ERenderBits mask = i;
 					//selected[i] = (mask_layer & mask) == mask;
-					bool selected = (mask_layer & mask) == mask;
+					bool selected = (render_mask_layer & mask) == mask;
 					if (ImGui::Selectable(layers_name[i], &selected))
 					{
 						if (selected) //add mask
-							mask_layer |= mask;
+							render_mask_layer |= mask;
 							//mask_layer |= mask;
 						else //remove mask
-							mask_layer &= ~mask;
+							render_mask_layer &= ~mask;
 							 //mask_layer ^= mask;
 						modified = true;
 					}
@@ -371,12 +373,12 @@ namespace Fluxon {
 					ImGui::Text("Data: %p\nSize: %d\nCapacity: %d", (void*)my_str.data()[0], my_str.size(), my_str.capacity());
 
 					ImGui::SeparatorText("Light Shadow Data");
-					ImGui::SliderFloat("View size", &scene_resources.lightShadowData.viewSize, 0.0f, 100.0f);
-					ImGui::SliderFloat("View near", &scene_resources.lightShadowData.near, 0.1f, 50.0f);
-					ImGui::SliderFloat("View far", &scene_resources.lightShadowData.far, 1.0f, 500.0f);
+					//ImGui::SliderFloat("View size", &scene_resources.lightShadowData.viewSize, 0.0f, 100.0f);
+					//ImGui::SliderFloat("View near", &scene_resources.lightShadowData.near, 0.1f, 50.0f);
+					//ImGui::SliderFloat("View far", &scene_resources.lightShadowData.far, 1.0f, 500.0f);
 
-					ImGui::DragFloat3("Sample Origin", &scene_resources.lightShadowData.sampleOrigin[0], 0.1f);
-					ImGui::DragFloat3("Sample World Up", &scene_resources.lightShadowData.sampleWorldUp[0], 0.1f);
+					//ImGui::DragFloat3("Sample Origin", &scene_resources.lightShadowData.sampleOrigin[0], 0.1f);
+					//ImGui::DragFloat3("Sample World Up", &scene_resources.lightShadowData.sampleWorldUp[0], 0.1f);
 					ImGui::SliderFloat("Sample Offste", &scene_resources.lightShadowData.sampleShadowDistance, 1.0f, 500.0f);
 
 					ImGui::SliderFloat("depthBiasConstantFactor", &scene_resources.lightShadowData.depthBiasConstantFactor, 1.0f, 10.0f);

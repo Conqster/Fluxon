@@ -1,5 +1,5 @@
 #include "Camera.h"
-
+#include "AssertLog.h"
 
 
 namespace Fluxon {
@@ -21,6 +21,8 @@ namespace Fluxon {
 			return GetOrthoProjection(width / height);
 			break;
 		default:
+			FLUX_DEBUG_LOG_WARNING("Camera Type not supported yet/ does not have a suitable projection");
+			return glm::mat4(1.0);
 			break;
 		}
 	}
@@ -37,6 +39,8 @@ namespace Fluxon {
 			return GetOrthoProjection(aspect);
 			break;
 		default:
+			FLUX_DEBUG_LOG_WARNING("Camera Type not supported yet/ does not have a suitable projection");
+			return glm::mat4(1.0);
 			break;
 		}
 	}

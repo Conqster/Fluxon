@@ -13,24 +13,10 @@
 
 #include "Core.h"
 
+#include "Enums.h"
+
 
 namespace Fluxon {
-
-
-
-
-	enum class ECameraType : uint8_t
-	{
-		Perspective = 0U,
-		Orthographic = 1U
-	};
-
-
-	constexpr std::array<const char*, 2>GetCameraTypeAsChar()
-	{
-		return { "Perspective", "Orthographic"};
-	}
-
 
 	/// <summary>
 	/// base camera for static light weight effect 
@@ -122,8 +108,8 @@ namespace Fluxon {
 		DynamicCamera(const ECameraType& type, const float near, const float far, const float fovy_scale) : 
 			Camera(type, near, far, fovy_scale){ }
 
-		glm::vec3& const GetUp() { return mUp; }
-		glm::vec3& const GetRight() { return mRight; }
+		const glm::vec3& GetUp() const { return mUp; } //<-- better 
+		const glm::vec3& GetRight() const { return mRight; } //<--- out dated const usage
 
 		virtual void SetLookTarget(const glm::vec3& target) override;
 

@@ -40,8 +40,10 @@ namespace Fluxon {
 			//TODO(Conqster): Need to change this arctecture 
 			//should not own gpu data just transfer datas
 			renderPrimitiveData.pipelineIdx = 0;
-			renderPrimitiveData.mesh = &mesh->gpuMesh;
-			renderPrimitiveData.material = &material->gpuMaterial;
+			if(mesh != nullptr)
+				renderPrimitiveData.mesh = &mesh->gpuMesh;
+			if(material != nullptr)
+				renderPrimitiveData.material = &material->gpuMaterial;
 			renderPrimitiveData.pushConstantSpecs = {
 			{ VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(renderPrimitiveData.GPUModel), sizeof(glm::vec4), (void*)&new_mat_sys_hack},
 			{VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(renderPrimitiveData.GPUModel), (void*)&renderPrimitiveData.GPUModel}

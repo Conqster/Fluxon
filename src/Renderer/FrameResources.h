@@ -149,11 +149,11 @@ namespace Fluxon {
 		struct FrameResources
 		{
 			//TODO: might have one pool that all the bufer can use
-			VkCommandPool commandPool;
-			VkCommandBuffer commandBuffer;
+			VkCommandPool commandPool									= VK_NULL_HANDLE;
+			VkCommandBuffer commandBuffer								= VK_NULL_HANDLE;
 
 			//sync objects (used per-frame)
-			VkSemaphore imageAvailable;
+			VkSemaphore imageAvailable									= VK_NULL_HANDLE;
 			//render finsinhed semaphore needs to be image/swap chain image based count 
 			//because nots not based on the frame count/flight count its based  on
 			//is the graphic queue finshed rendering/writing/using the spaw chain image then 
@@ -166,13 +166,13 @@ namespace Fluxon {
 			// By indexing semaphores by the acquired image index, we ensure that a semaphore
 			// is only reused after the presentation engine has finshed with that image.
 			//
-			VkFence inFlight;
+			VkFence inFlight											= VK_NULL_HANDLE;
 
 			//compute 
-			VkCommandBuffer computeCommandBuffer;
+			VkCommandBuffer computeCommandBuffer						= VK_NULL_HANDLE;
 			//compute sync object
-			VkSemaphore computeCompleteSemaphore;
-			VkFence computeInFlight;
+			VkSemaphore computeCompleteSemaphore						= VK_NULL_HANDLE;
+			VkFence computeInFlight										= VK_NULL_HANDLE;
 
 
 			//NOTE(Conqster): Its nice for each frame to have thier own resource 
@@ -182,20 +182,20 @@ namespace Fluxon {
 			//unlike model transform the changes extermely freq as all model would have different transforms. 
 			//so the constant resources count N could be (N > frame count) and managed that when a frame is acquired, a descriptor pool/&set is acquired based on availablity 
 			//not tied to frame data. later might explore render pass arcitecture rather than frame pass data arctecture 
-			VkDescriptorPool globalDescriptorPool;
-			std::vector<VkDescriptorSet> globalDescriptorSets;
+			VkDescriptorPool globalDescriptorPool						= VK_NULL_HANDLE;
+			std::vector<VkDescriptorSet> globalDescriptorSets			= {};
 
 
-			std::vector<DescriptorBinding> pendingDescriptorBindings;
-			//GPUBuffer globalUniformBuffer;
-			GPUBuffer globalCameraUniformBuffer;
-			GPUBuffer globalDirectionalLightUniformBuffer;
-			GPUBuffer globalSkyboxUniformBuffer;
+			std::vector<DescriptorBinding> pendingDescriptorBindings	= {};
+			
+			GPUBuffer globalCameraUniformBuffer							= {};
+			GPUBuffer globalDirectionalLightUniformBuffer				= {};
+			GPUBuffer globalSkyboxUniformBuffer							= {};
 
 
 			const VkDescriptorSet& GetGlobalDescriptorSet(const DescriptorSetSpecification desc_set_spec) {
 				//saftey 
-				if (desc_set_spec.set >= globalDescriptorSets.size()) return VK_NULL_HANDLE;
+				FLUX_DEBUG_ASSERT_CRITICAL(desc_set_spec.set <= globalDescriptorSets.size(), "Invalid Set index!!!!");
 				return globalDescriptorSets[desc_set_spec.set];
 			}
 

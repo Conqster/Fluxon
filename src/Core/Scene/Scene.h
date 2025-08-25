@@ -112,7 +112,7 @@ namespace Fluxon {
 		SceneNode* GetCameraNode() {
 			return mCacheMainCameraNode;
 		}
-		SceneNode* GetDirectionalLightNode();
+		//SceneNode* GetDirectionalLightNode();
 
 		//Scene::Update generates SceneContext for update nodes 
 		void Update(float delta_time, SceneContext& scene_ctx);
@@ -341,18 +341,18 @@ namespace Fluxon {
 
 			switch (primitive_type)
 			{
-			case Fluxon::EPrimitiveMeshType::EPMT_None:
+			case Fluxon::EPrimitiveMeshType::None:
 				break;
-			case Fluxon::EPrimitiveMeshType::EPMT_ModelMesh:
+			case Fluxon::EPrimitiveMeshType::ModelMesh:
 				return CreateModel(scene, vk_ctx, cmd_pool, file_path);
 				break;
-			case Fluxon::EPrimitiveMeshType::EPMT_Cube:
+			case Fluxon::EPrimitiveMeshType::Cube:
 				return CreateCube(scene, vk_ctx, cmd_pool);
 				break;
-			case Fluxon::EPrimitiveMeshType::EPMT_Sphere:
+			case Fluxon::EPrimitiveMeshType::Sphere:
 				return CreateSphere(scene, vk_ctx, cmd_pool);
 				break;
-			case Fluxon::EPrimitiveMeshType::EPMT_Plane:
+			case Fluxon::EPrimitiveMeshType::Plane:
 				return CreatePlane(scene, vk_ctx, cmd_pool);
 				break;
 			default:

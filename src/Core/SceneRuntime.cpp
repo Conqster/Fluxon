@@ -221,9 +221,9 @@ namespace Fluxon {
 			mCamera = app_cam_ref;
 
 
-
-
-		mVulkanContext = Vulkan::VulkanContext::CreateVulkanContext(&window, true, DebugCallback);
+		Vulkan::VulkanContextSpecification vk_ctx_spec{};
+		vk_ctx_spec.bEnableFragmentStoresAndAtomics = true;
+		mVulkanContext = Vulkan::VulkanContext::CreateVulkanContext(&window, vk_ctx_spec, DebugCallback);
 
 
 
@@ -453,15 +453,19 @@ namespace Fluxon {
 		mDebugLines.Init(&mVulkanContext, forward_render_pass->GetRenderPassHandle(), mScene.GetDescriptorSetSpecificationByIdx(model_desc_set_idx).layoutHandle);
 
 
+
 		VkPhysicalDeviceLimits device_limits = mVulkanContext.GetPhysicalDeviceLimits();
 		std::cout << "max Framebuffer Layers: " <<  device_limits.maxFramebufferLayers <<"\n";
 		std::cout << "SSBO storage limits: " <<  device_limits.maxStorageBufferRange <<"\n";
-		printf("Per Stage Descriptor Storage Buffers limits: %d\n", (int)device_limits.maxPerStageDescriptorStorageBuffers);
-		printf("Descriptor Set Storage Buffers limits: %d\n", (int)device_limits.maxDescriptorSetStorageBuffers);
-		printf("Compute Work Group count Limit: %d\n", (int)device_limits.maxComputeWorkGroupCount);
-		printf("Compute Work Group innvocation Limit: %d\n", (int)device_limits.maxComputeWorkGroupInvocations);
+		FLUX_DEBUG_LOG_INFO("Per Stage Descriptor Storage Buffers limits: ", (int)device_limits.maxPerStageDescriptorStorageBuffers);
+		FLUX_DEBUG_LOG_INFO("Descriptor Set Storage Buffers limits: ", (int)device_limits.maxDescriptorSetStorageBuffers);
+		auto& wGC = device_limits.maxComputeWorkGroupCount;
+		FLUX_DEBUG_LOG_INFO("okay, this uis just an info \n haha Compute Work Group \n\t count limit [1]: ", wGC[0], 
+		", \n\t count limit [2]: ", wGC[1], 
+		",\n\t count limit [3]: ", wGC[2]);
+		FLUX_DEBUG_LOG_INFO("Compute Work Group innvocation Limit: ", (int)device_limits.maxComputeWorkGroupInvocations);
 		auto& wGS = device_limits.maxComputeWorkGroupSize;
-		printf("Compute Work Group innvocation Limit, \n\t [1]: %d, \n\t [2]: %d,\n\t [3]: %d\n", (int)wGS[0], (int)wGS[1], (int)wGS[2]);
+		FLUX_DEBUG_LOG_INFO("Compute Work Group innvocation Limit \n\t [1]: ", wGS[0], ", \n\t [2]: ", wGS[1], ",\n\t [3]: ", wGS[2]);
 	}
 
 
@@ -560,7 +564,7 @@ namespace Fluxon {
 		//uint32_t mesh2 = Scene::CreateNewMesh(mScene, Vulkan::Mesh());
 		uint32_t mesh2 = Scene::CreateModel(mScene, vk_ctx, cmd_pool, "assets/models/model.dae");
 		//uint32_t mesh3 = Scene::CreateNewMesh(mScene, Vulkan::Mesh());
-		uint32_t mesh3 = Scene::CreateMesh(mScene, vk_ctx, cmd_pool, EPrimitiveMeshType::EPMT_Plane);
+		uint32_t mesh3 = Scene::CreateMesh(mScene, vk_ctx, cmd_pool, EPrimitiveMeshType::Plane);
 		//mesh0->Generate(vk_ctx, cmd_pool, vertices_data, indices_data);
 
 		//vertices_data.clear();
@@ -607,14 +611,16 @@ namespace Fluxon {
 		//SceneNode* mesh_node1 = new SceneNode("Mesh-Node1", glm::translate(glm::mat4(1.0f), glm::vec3(0.63f, 0.28f, 5.47f)));
 		SceneNode* mesh_node1 = Scene::CreateNewNode(mScene, SceneNode("Mesh-Node1", glm::translate(glm::mat4(1.0f), glm::vec3(0.63f, 0.28f, 5.47f))));
 		if (mCamera && mesh_node1)
+		{
 			mCamera->SetLookTarget(mesh_node1->GetWorldTransform()[3]);
 #if USE_EXPLICIT_COMPONENT
-		Scene::AttachRenderableComponent(mScene, *mesh_node1, RenderableComponent(mesh1, mat, true, true));
+			Scene::AttachRenderableComponent(mScene, *mesh_node1, RenderableComponent(mesh1, mat, true, true));
 #else
-		mesh_node1->AddComponent(std::make_unique<RenderableComponent>(mesh1, mat, true, true));
+			mesh_node1->AddComponent(std::make_unique<RenderableComponent>(mesh1, mat, true, true));
 #endif // USE_EXPLICIT_COMPONENT
-		//scene_root->AddChild(std::move(mesh_node1));
-		Scene::AttachChild(mScene, *scene_root, *mesh_node1);
+			//scene_root->AddChild(std::move(mesh_node1));
+			Scene::AttachChild(mScene, *scene_root, *mesh_node1);
+		}
 
 
 
@@ -688,24 +694,28 @@ namespace Fluxon {
 
 		LightShadowData& light_shadow_data = mScene.mSceneResources.lightShadowData;
 
-		glm::mat4 proj = glm::ortho(-light_shadow_data.viewSize, light_shadow_data.viewSize,
-			-light_shadow_data.viewSize, light_shadow_data.viewSize,
-			light_shadow_data.near, light_shadow_data.far);
-		proj[1][1] *= -1;
-		glm::vec3 normalised_light_dir = glm::normalize(mDirLight.direction);
-		glm::vec3 light_pos = light_shadow_data.sampleOrigin - (normalised_light_dir * light_shadow_data.sampleShadowDistance);
-		//glm::mat4 view = glm::lookAt(light_pos, light_shadow_data.sampleOrigin, light_shadow_data.sampleWorldUp); //world up 0, 1, 0
-		glm::vec3 up = (glm::abs(glm::dot(normalised_light_dir, glm::vec3(0, 1, 0))) > 0.99f) ? glm::vec3(0, 0, 1) : glm::vec3(0, 1, 0);
-		glm::mat4 view = glm::lookAt(light_pos, light_shadow_data.sampleOrigin, up); //world up 0, 1, 0
 
 
+		//glm::mat4 proj = glm::ortho(-light_shadow_data.viewSize, light_shadow_data.viewSize,
+		//	-light_shadow_data.viewSize, light_shadow_data.viewSize,
+		//	light_shadow_data.near, light_shadow_data.far);
+		//proj[1][1] *= -1;
+		//glm::vec3 normalised_light_dir = glm::normalize(mDirLight.direction);
+		//glm::vec3 light_pos = light_shadow_data.sampleOrigin - (normalised_light_dir * light_shadow_data.sampleShadowDistance);
+		////glm::mat4 view = glm::lookAt(light_pos, light_shadow_data.sampleOrigin, light_shadow_data.sampleWorldUp); //world up 0, 1, 0
+		//glm::vec3 up = (glm::abs(glm::dot(normalised_light_dir, glm::vec3(0, 1, 0))) > 0.99f) ? glm::vec3(0, 0, 1) : glm::vec3(0, 1, 0);
+		//glm::mat4 view = glm::lookAt(light_pos, light_shadow_data.sampleOrigin, up); //world up 0, 1, 0
+
+
+		light_shadow_data.UpdateCameraPosition(mDirLight.direction);
 		Vulkan::BeginComputeFrameCommand(mVulkanContext, curr_frame, &mComputePass);
 
 		mComputePass.Begin(&mVulkanContext, curr_frame.computeCommandBuffer, 0);
 
 		Vulkan::EndComputeFrameCommand(mVulkanContext, curr_frame);
 		
-		UpdateGlobalFrameDataUBO(curr_frame, mWindow->width, mWindow->height, view, proj);
+		//UpdateGlobalFrameDataUBO(curr_frame, mWindow->width, mWindow->height, view, proj);
+		UpdateGlobalFrameDataUBO(curr_frame, mWindow->width, mWindow->height, light_shadow_data.GetView(), light_shadow_data.GetProjection());
 		Vulkan::BeginGfxFrameCommand(mVulkanContext, curr_frame, swapchain_img_idx, *mWindow, mScene.GetForwardRenderPass()->GetRenderPassHandle(), &mImGuiUI);
 		
 
@@ -720,10 +730,11 @@ namespace Fluxon {
 		//proj = Camera::GetProjection(*mCamera, mWindow->width, mWindow->height);
 		//glm::mat4 light_matrix = proj * view; 
 		//light_matrix = Camera::GetProjection(*mCamera, mWindow->width, mWindow->height) * Camera::GetView(*mCamera);
-		mShadowGfxPass.UpdateLightMatrixBuffer(view, proj);
+		mShadowGfxPass.UpdateLightMatrixBuffer(light_shadow_data.GetView(), light_shadow_data.GetProjection());
 		for (auto& render_obj : mSceneContext.renderPassBuckets[0].renderObjects)
 		{
-			if ((render_obj.maskLayer & ERenderMask::RM_ShadowCaster) == ERenderMask::RM_ShadowCaster)
+			//if ((render_obj.maskLayer & ERenderMask::RM_ShadowCaster) == ERenderMask::RM_ShadowCaster)
+			if (render_obj.renderMask.Contains(ERenderBits::ShadowCasterBit))
 			{
 				auto& matrix = render_obj.GPUModel.transform;
 				mShadowGfxPass.PushModelTransformConstant(curr_cmd_buff, &render_obj.GPUModel);
@@ -748,7 +759,7 @@ namespace Fluxon {
 		
 		for (auto& render_passes : mSceneContext.renderPassBuckets)
 		{
-			if (render_passes.type == ERenderPassType::RenderPass_None)
+			if (render_passes.type == ERenderPassType::None)
 				continue;
 
 			// render pass
@@ -793,6 +804,8 @@ namespace Fluxon {
 
 			mDebugLines.BeginFrame(mVulkanContext.frameIndex);
 
+
+#pragma region Emitter debug line bounds
 			auto& emitter = mComputePass.mEmitter;
 			glm::vec3 bounds_min = /*emitter.worldTransform * */glm::vec4(emitter.boundsMin, 1.0f);
 			glm::vec3 bounds_max = /*emitter.worldTransform * */ glm::vec4(emitter.boundsMax, 1.0f);
@@ -802,11 +815,26 @@ namespace Fluxon {
 			for(size_t i = 0; i < aabb_edges.size(); i+=2)
 				mDebugLines.PushLine({ glm::vec4(aabb_edges[i], 1.0f), Colour32::sCyan}, { glm::vec4(aabb_edges[i+1], 1.0f), Colour32::sCyan });
 
+
 			glm::vec4 localGravity = glm::inverse(emitter.worldTransform) * glm::vec4(0.0f, -9.8f, 0.0f, 0.0f);
 			mDebugLines.PushLine({ emitter.worldTransform[3] }, { emitter.worldTransform[3] + localGravity * 4.0f });
 
 			mDebugLines.PushLine({ glm::vec4(10.0f, -5.0f, 0.0, 1.0f) }, { glm::vec4(0.0f, 5.0f, 0.0, 1.0f) });
 			mDebugLines.PushLine({ glm::vec4(-5.0f, 0.0f, 0.0, 1.0f) }, { glm::vec4(5.0f, 0.0f, 0.0, 1.0f) });
+#pragma endregion //Emitter debug line bounds
+
+#pragma region Dir Light debug line bounds 
+			auto& dir_light_aabb = light_shadow_data.GetViewOrthoVolumeAABBBounds();
+
+			glm::mat4 light_world_transform = glm::translate(glm::mat4(1.0f), light_shadow_data.GetViewPosition()) * Utils::DirectionalBasis(mDirLight.direction);
+
+			aabb_edges = Utils::GenerateAABBEdges(light_world_transform, dir_light_aabb);
+			for (size_t i = 0; i < aabb_edges.size(); i += 2)
+				mDebugLines.PushLine({ glm::vec4(aabb_edges[i], 1.0f), Colour32::sGreen }, { glm::vec4(aabb_edges[i + 1], 1.0f), Colour32::sGreen });
+
+#pragma endregion //Dir Light debug line bounds 
+
+
 
 			mDebugLines.DrawDebugLines(&mVulkanContext, curr_cmd_buff, camera_desc_set);
 

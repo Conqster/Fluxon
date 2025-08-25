@@ -93,26 +93,26 @@ namespace Fluxon {
 			//TODO (Conqster): maybe later cache optimal device properties
 		}
 
-		VulkanContext VulkanContext::CreateVulkanContext(Platform::Window* window, bool enable_validation_layers, PFN_vkDebugUtilsMessengerCallbackEXT debug_callback)
+		VulkanContext VulkanContext::CreateVulkanContext(Platform::Window* window, const VulkanContextSpecification& ctx_spec, PFN_vkDebugUtilsMessengerCallbackEXT debug_callback)
 		{
 			//check validation layer is required and supported 
-			if (enable_validation_layers && !Utils::CheckValidationLayerSupport(mValidationLayers))
+			if (ctx_spec.bEnableValidationLayer && !Utils::CheckValidationLayerSupport(mValidationLayers))
 				throw std::runtime_error("\n\nVaildation layers requested, but not available!!!");
 
 			VulkanContext vk_ctx;
 			vk_ctx.pMainPlatformWindow = window;
 			
 
-			vk_ctx.CreateVkInstance(window, enable_validation_layers, debug_callback);
+			vk_ctx.CreateVkInstance(window, ctx_spec, debug_callback);
 
-			if (enable_validation_layers)
+			if (ctx_spec.bEnableValidationLayer)
 				vk_ctx.InitDebugMessenger(debug_callback);
 
 			vk_ctx.CreateSurface(window);
 
 			EnumerateOptimalPhysicalDeviceToUse(&vk_ctx);
 
-			vk_ctx.CreateLogicalDevice();
+			vk_ctx.CreateLogicalDevice(ctx_spec);
 
 			vk_ctx.dummyDescSetLayout = Utils::CreateDummyDescriptorSetLayout(&vk_ctx);
 			return vk_ctx;
@@ -120,26 +120,26 @@ namespace Fluxon {
 
 	
 
-		void VulkanContext::CreateVkInstance(const Platform::Window* window, bool enable_validation_layers, PFN_vkDebugUtilsMessengerCallbackEXT debug_callback)
+		void VulkanContext::CreateVkInstance(const Platform::Window* window, const VulkanContextSpecification& ctx_spec, PFN_vkDebugUtilsMessengerCallbackEXT debug_callback)
 		{
 			VkApplicationInfo app_info{};
 			app_info.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
 			app_info.pApplicationName = window->title.c_str();
-			app_info.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
+			app_info.applicationVersion = ctx_spec.applicationVersion;
 			app_info.pEngineName = "No Engine";
 			app_info.engineVersion = VK_MAKE_VERSION(1, 0, 0);
-			app_info.apiVersion = VK_API_VERSION_1_0;
+			app_info.apiVersion = ctx_spec.apiVersion;
 
 			VkInstanceCreateInfo create_info{};
 			create_info.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
 			create_info.pApplicationInfo = &app_info;
 
-			auto req_extensions = Utils::GetRequiredExtensions(enable_validation_layers);
+			auto req_extensions = Utils::GetRequiredExtensions(ctx_spec.bEnableValidationLayer);
 			create_info.enabledExtensionCount = static_cast<uint32_t>(req_extensions.size());
 			create_info.ppEnabledExtensionNames = req_extensions.data();
 
 			VkDebugUtilsMessengerCreateInfoEXT debug_utils_create_info{};
-			if (enable_validation_layers)
+			if (ctx_spec.bEnableValidationLayer)
 			{
 				create_info.enabledLayerCount = static_cast<uint32_t>(mValidationLayers.size());
 				create_info.ppEnabledLayerNames = mValidationLayers.data();
@@ -164,7 +164,7 @@ namespace Fluxon {
 			FLUX_VK_ASSERT_SUCCESS(glfwCreateWindowSurface(instance, window->glfwWindowHandle, nullptr, &surface), "Failed to create window surface!!!!!");
 		}
 
-		void VulkanContext::CreateLogicalDevice()
+		void VulkanContext::CreateLogicalDevice(const VulkanContextSpecification& ctx_spec)
 		{
 			QueueFamilyIndices queue_indices = Utils::FindDeviceQueueFamilies(*this);
 
@@ -200,11 +200,20 @@ namespace Fluxon {
 #if SUPPORT_MORE_FEATURE_SEPARATE_DEPTH
 			VkPhysicalDeviceFeatures2 device_feature2{};
 			device_feature2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
-			device_feature2.features.samplerAnisotropy = VK_TRUE;
-			VkPhysicalDeviceSeparateDepthStencilLayoutsFeatures separate_layouts{};
-			separate_layouts.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SEPARATE_DEPTH_STENCIL_LAYOUTS_FEATURES;
-			separate_layouts.separateDepthStencilLayouts = VK_TRUE;
-			device_feature2.pNext = &separate_layouts;
+			device_feature2.features.samplerAnisotropy = static_cast<VkBool32>(ctx_spec.bEnableSamplerAnisotropy);
+
+			if (ctx_spec.bEnableSeparateDepthStencil)
+			{
+				VkPhysicalDeviceSeparateDepthStencilLayoutsFeatures separate_layouts{};
+				separate_layouts.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SEPARATE_DEPTH_STENCIL_LAYOUTS_FEATURES;
+				separate_layouts.separateDepthStencilLayouts = VK_TRUE;
+
+				device_feature2.pNext = &separate_layouts;
+			}
+
+			device_feature2.features.geometryShader = static_cast<VkBool32>(ctx_spec.bEnableGeometryShader);
+			device_feature2.features.fragmentStoresAndAtomics = static_cast<VkBool32>(ctx_spec.bEnableFragmentStoresAndAtomics);
+			//VkPhysicalDeviceMultiviewFeatures
 
 			VkDeviceCreateInfo device_create_info{};
 			device_create_info.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;

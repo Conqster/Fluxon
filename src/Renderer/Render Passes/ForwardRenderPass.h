@@ -12,7 +12,7 @@ namespace Fluxon {
 		class ForwardRenderPass : public IRenderPass
 		{
 		private:
-			VkRenderPass mRenderPass;
+			VkRenderPass mRenderPass = VK_NULL_HANDLE;
 
 		public:
 			glm::vec3 mClearColour = glm::vec3(0.0f);

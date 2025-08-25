@@ -2,6 +2,8 @@
 #include "Renderer/PBRMaterial.h"
 #include "Renderer/VulkanContext.h"
 
+#include "Core/Enums.h"
+
 namespace Fluxon {
 
 
@@ -10,20 +12,9 @@ namespace Fluxon {
 
 	struct MaterialDescriptor
 	{
-		enum class ETextureMap : uint32_t
-		{
-			TMap_Albedo = 0,
-			TMap_Normal,
-			TMap_aoRM,
-
-			TMap_Count
-		};
-
 		int32_t id = -1;
 		//in order of albedo, normal, aoRM
-		//std::array<const char*, static_cast<size_t>(ETextureMap::TMap_Count)> pbrPaths;
-		//std::array<char[128], static_cast<size_t>(ETextureMap::TMap_Count)> pbrPaths;
-		std::array<std::string, static_cast<size_t>(ETextureMap::TMap_Count)> pbrPaths;
+		std::array<std::string, static_cast<size_t>(EPBRTextureMapType::Count)> pbrPaths;
 		VkFormat format = VK_FORMAT_R8G8B8A8_SRGB;
 		bool anisotropicSampling = true;
 	};

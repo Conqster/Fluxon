@@ -40,8 +40,7 @@ namespace Fluxon {
 		return col / 255.0f;
 	}
 
-
-	struct Colour32
+	struct NODISCARD Colour32
 	{
 		union {
 			u32 value;
@@ -62,22 +61,20 @@ namespace Fluxon {
 		Colour32(const glm::vec4& rgba) : value(PackRGBA(rgba)) {}
 
 		//Convert to glm
-		glm::vec3 ToVec3() const {
-			return glm::vec3(r, g, b) / 255.0f;
-		}
-
-		glm::vec4 ToVec4() const {
-			return glm::vec4(r, g, b, a) / 255.0f;
-		}
+		NODISCARD glm::vec3 ToVec3() const { return glm::vec3(r, g, b) / 255.0f; }
+		NODISCARD glm::vec4 ToVec4() const { return glm::vec4(r, g, b, a) / 255.0f; }
 
 		bool operator==(const Colour32& other) const { return value == other.value; }
 		bool operator!=(const Colour32& other) const { return value != other.value; }
 
 		//implicit conversions
 		// to packed uint32_t
-		operator u32() const { return value; }
-		operator glm::vec3() const { return glm::vec3(r, g, b) / 255.0f; }
-		operator glm::vec4() const { return glm::vec4(r, g, b, a) / 255.0f; }
+		NODISCARD operator u32() const { return value; }
+		NODISCARD operator glm::vec3() const { return glm::vec3(r, g, b) / 255.0f; }
+		NODISCARD operator glm::vec4() const { return glm::vec4(r, g, b, a) / 255.0f; }
+
+		//channel accessing
+		//u8 operator ()(int idx) const { return r; }
 
 
 		static const Colour32 sWhite;

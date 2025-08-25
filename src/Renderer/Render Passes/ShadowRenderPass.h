@@ -44,7 +44,7 @@ namespace Fluxon {
 			VkRenderPass& GetRenderPassHandle() { return mRenderPass; }
 			RenderTarget& GetShadowDepthRenderTarget() { return mDepthRenderTarget; }
 
-			DescriptorBinding& GetSamplerBinding(uint32_t set, uint32_t binding)
+			DescriptorBinding GetSamplerBinding(uint32_t set, uint32_t binding)
 			{
 				Resources::ImageSampler img_sampler{
 					mDepthRenderTarget.image,
