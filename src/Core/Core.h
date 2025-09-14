@@ -1,21 +1,22 @@
 #pragma once
 #include <cstdint>
 #include <yaml-cpp/yaml.h>
+#include "Editor/UITrait.h"
 
 #include "EnumBitsFlag.h"
 
 namespace Fluxon {
 
 
-	using u8 = uint8_t;
-	using u16 = uint16_t;
-	using u32 = uint32_t;
-	using u64 = uint64_t;
+	using uint8 = uint8_t;
+	using uint16 = uint16_t;
+	using uint32 = uint32_t;
+	using uint64 = uint64_t;
 
-	using i8 = int8_t;
-	using i16 = int16_t;
-	using i32 = int32_t;
-	using i64 = int64_t;
+	using int8 = int8_t;
+	using int16 = int16_t;
+	using int32 = int32_t;
+	using int64 = int64_t;
 
 	//to prevent truncation of 64-bit pointer to 32-bit
 	using intptr = intptr_t; //<-- sweet for bitwise ops (address math, masking, hashing)
@@ -30,17 +31,23 @@ namespace Fluxon {
 		return static_cast<T>(T(1) << x); 
 	}
 	
-	inline constexpr u32 Bit32(unsigned x) {
-		return Bit<u32>(x);
+	inline constexpr uint32 Bit32(unsigned x) {
+		return Bit<uint32>(x);
 	}
 
-	inline constexpr u16 Bit16(unsigned x) {
-		return Bit<u16>(x);
+	inline constexpr uint16 Bit16(unsigned x) {
+		return Bit<uint16>(x);
+	}
+
+	inline constexpr uint8 Bit8(unsigned x) {
+		return Bit<uint8>(x);
 	}
 
 #define NODISCARD [[nodiscard]]
 
 #define MAKE_PROPERTY_SERIALISABLE(Type) friend struct YAML::convert<Type>;
+//UI trait Friend injection
+//#define MAKE_PROPERTY_UI_TRAIT(Type) friend struct Fluxon::Editor::UITrait<Type>;
 
 #define FLUX_VULKAN 1
 #define FLUX_ENABLE_CONSOLE_LOGGING 1
@@ -69,6 +76,33 @@ namespace Fluxon {
 		NonCopyable(const NonCopyable&) = delete;
 		void operator=(const NonCopyable&) = delete;
 	};
+
+	template<typename T>
+	struct Range
+	{
+		T min;
+		T max;
+		bool IsValid() const
+		{
+			return min <= max;
+		}
+		T Mid() const
+		{
+			return (min + max) / 2;
+		}
+		T Span() const
+		{
+			return max - min;
+		}
+
+		//extras utilities
+		T Clamp(T value) const
+		{
+			return std::min(std::max(value, min), max);
+		}
+	};
+
+
 } //namespace
 
 

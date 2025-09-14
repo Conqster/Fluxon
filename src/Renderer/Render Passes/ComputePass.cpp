@@ -9,7 +9,7 @@
 namespace Fluxon {
 	namespace Vulkan {
 
-		void ComputePass::Init(class VulkanContext* vk_ctx, VkCommandPool cmd_pool, VkRenderPass& forward_render_pass, VkDescriptorSetLayout& camera_desc_set_layout)
+		void ComputePass::Init(class VulkanContext* vk_ctx, VkCommandPool cmd_pool, const VkRenderPass& forward_render_pass, VkDescriptorSetLayout& camera_desc_set_layout)
 		{
 
 			VkDeviceSize buffer_size = static_cast<VkDeviceSize>(sizeof(GPUStructures::EmitterUBO));
@@ -109,6 +109,8 @@ namespace Fluxon {
 
 			vkCmdDraw(cmd_buff, PARTICLE_COUNT, 1, 0, 0);
 		}
+
+
 		bool ComputePass::CreateDescriptorSetLayouts(const VulkanContext* vk_ctx)
 		{
 			std::array<VkDescriptorSetLayoutBinding, 4> layout_bindings{};
@@ -257,7 +259,7 @@ namespace Fluxon {
 		}
 		
 
-		bool ComputePass::CreatePipeline(const VulkanContext* vk_ctx, VkRenderPass& forward_render_pass, VkDescriptorSetLayout& camera_desc_set_layout)
+		bool ComputePass::CreatePipeline(const VulkanContext* vk_ctx, const VkRenderPass& forward_render_pass, VkDescriptorSetLayout& camera_desc_set_layout)
 		{
 			GraphicsPipelineSpecification compute_spec{};
 			compute_spec.bComputePipeline = true;
@@ -359,7 +361,8 @@ namespace Fluxon {
 			//DescriptorSetSpecification
 			vkDestroyDescriptorSetLayout(ctx->device, mComputeDescSetSpec.layoutHandle, nullptr);
 
-			vkDestroyDescriptorPool(ctx->device, mDescriptorPool, nullptr);
+			if(mDescriptorPool != VK_NULL_HANDLE)
+				vkDestroyDescriptorPool(ctx->device, mDescriptorPool, nullptr);
 		}
 
 

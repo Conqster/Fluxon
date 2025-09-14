@@ -68,10 +68,12 @@ template<typename... Args>
 #include <glm/glm.hpp>
 #include <glm/gtx/string_cast.hpp>
 
+#include <imgui/imgui.h>
+
 namespace Fluxon {
 	namespace Debug {
 
-		enum class SEVERITY : u8
+		enum class SEVERITY : uint8
 		{
 			UNKNOWN = 0,
 			INFO,        //<----- Low as for basic logging infomation like "Player pos: {0.0, 0.0, 0.0}, Debug::Log("Position: ", pos);
@@ -107,6 +109,12 @@ namespace Fluxon {
 			inline std::ostream& operator<<(std::ostream& os, const glm::vec<L, T, Q>& vector)
 			{
 				return os << glm::to_string(vector);
+			}
+
+			inline std::ostream& operator<<(std::ostream& os, const ImVec4& imgui_vector)
+			{
+				return os << "{ " << imgui_vector.x << ", " << imgui_vector.y <<
+					", " << imgui_vector.z << ", " << imgui_vector.w << "}.";
 			}
 
 			inline void ConsoleLog(std::string& msg, const SEVERITY& severity = SEVERITY::UNKNOWN)

@@ -13,6 +13,8 @@ namespace Fluxon
 	struct FlagBitMaskTraits
 	{
 		static constexpr bool isMask = false;
+
+		//static constexpr std::optional<EnumBitsType> allBits;
 	};
 
 
@@ -82,6 +84,12 @@ namespace Fluxon
 		return (static_cast<underlying_type>(v) & static_cast<underlying_type>(flag)) == static_cast<underlying_type>(flag);
 	}
 
+	//template<typename EnumBitsType, std::enable_if_t<FlagBitMaskTraits<EnumBitsType>::isMask, bool> = true>
+	//inline constexpr EnumBitsType operator^(EnumBitsType lhs, EnumBitsType rhs)
+	//{
+	//	using underlying_type = std::underlying_type_t<EnumBitsType>;
+	//	return static_cast<EnumBitsType>(static_cast<underlying_type>(lhs) ^ static_cast<underlying_type>(rhs));
+	//}
 
 #pragma region BitFlag/BitMask
 
@@ -112,6 +120,17 @@ namespace Fluxon
 			mBits &= ~static_cast<underlying_type>(bit);
 		}
 
+		constexpr void Toggle(const BitsType& bit) noexcept {
+			mBits ^= static_cast<underlying_type>(bit);
+		}
+
+		constexpr void Toggle(const Flag<BitsType>& rhs) noexcept {
+			mBits ^= rhs.mBits;
+		}
+
+		constexpr void Set(const BitsType& bit) noexcept {
+			mBits = static_cast<underlying_type>(bit);
+		}
 
 		//operations
 		constexpr underlying_type Value() const { return mBits; }

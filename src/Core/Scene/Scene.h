@@ -3,6 +3,7 @@
 #include <memory>
 
 #include "Renderer/Render Passes/ForwardRenderPass.h"
+#include "Renderer/Render Passes/RenderPass.h"
 
 #include <glm/glm.hpp>
 #include "Renderer/GPUStrutures.h"
@@ -185,7 +186,7 @@ namespace Fluxon {
 
 
 		//Global datas 
-		std::unique_ptr<Vulkan::IRenderPass> mGlobalRenderPass;
+		std::unique_ptr<Vulkan::RenderPass> mGlobalRenderPass;
 		std::vector<Vulkan::DescriptorSetSpecification> mGlobalDescriptorSetSpecifications;
 		std::vector<Vulkan::GraphicsPipeline> mGlobalGraphicsPipelines;
 
@@ -260,8 +261,10 @@ namespace Fluxon {
 		//static uint32_t CreateNewMaterial(Scene& scene, const Vulkan::PBRMaterial& data, SceneNode* node) {
 		
 		//This allocated the memory for material on in scene, and try to perform gpu loading
-		static uint32_t CreateNewMaterial(Scene& scene, SceneNode* node, Vulkan::VulkanContext* vk_ctx, VkCommandPool cmd_pool, std::array<std::string, Vulkan::SHADER_PBR_MATERIAL_MAX_MAPS> pbr_mat_paths, VkFormat tex_image_format = VK_FORMAT_R8G8B8A8_SRGB, bool enable_anisotropu_sampling = true) {
+		static uint32_t CreateNewMaterial(Scene& scene, SceneNode* node, Vulkan::VulkanContext* vk_ctx, std::array<std::string, Vulkan::SHADER_PBR_MATERIAL_MAX_MAPS> pbr_mat_paths, VkFormat tex_image_format = VK_FORMAT_R8G8B8A8_SRGB, bool enable_anisotropu_sampling = true) {
 
+
+			VkCommandPool cmd_pool = vk_ctx->transientCmdPool;
 			MaterialResource resource;
 			resource.materialDesc = {
 				-1,
@@ -337,8 +340,9 @@ namespace Fluxon {
 
 
 
-		static uint32_t CreateMesh(Scene& scene, const Vulkan::VulkanContext* vk_ctx, VkCommandPool cmd_pool, const EPrimitiveMeshType primitive_type, const std::string& file_path = "") {
+		static uint32_t CreateMesh(Scene& scene, const Vulkan::VulkanContext* vk_ctx, const EPrimitiveMeshType primitive_type, const std::string& file_path = "") {
 
+			VkCommandPool cmd_pool = vk_ctx->transientCmdPool;
 			switch (primitive_type)
 			{
 			case Fluxon::EPrimitiveMeshType::None:
@@ -442,10 +446,10 @@ namespace Fluxon {
 
 
 
-		Vulkan::ForwardRenderPass* GetForwardRenderPass() {
-			return dynamic_cast<Vulkan::ForwardRenderPass*>(mGlobalRenderPass.get());
+		Vulkan::RenderPass* GetForwardRenderPass() {
+			return dynamic_cast<Vulkan::RenderPass*>(mGlobalRenderPass.get());
 		}
-		void SetForwardRenderPass(std::unique_ptr<Vulkan::IRenderPass> p_render_pass) {
+		void SetForwardRenderPass(std::unique_ptr<Vulkan::RenderPass> p_render_pass) {
 			if (mGlobalRenderPass)
 				printf("BAD BAD; Need to clean up parent_node tree before set a new one ");
 

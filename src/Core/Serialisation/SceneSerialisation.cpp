@@ -112,7 +112,7 @@ namespace Fluxon {
 
 
 
-	void SceneSerialiser::LoadScene(Vulkan::VulkanContext* vk_ctx, VkCommandPool cmd_pool, const std::string& file_path, Scene& scene)
+	void SceneSerialiser::LoadScene(Vulkan::VulkanContext* vk_ctx, const std::string& file_path, Scene& scene)
 	{
 		YAML::Node root_node = YAML::LoadFile(file_path);
 
@@ -142,10 +142,10 @@ namespace Fluxon {
 
 
 		if (root_node["Mesh Resources"])
-			DeserialiseMeshResources(vk_ctx, cmd_pool, root_node["Mesh Resources"], scene);
+			DeserialiseMeshResources(vk_ctx, root_node["Mesh Resources"], scene);
 
 		if(root_node["Material Resources"])
-			DeserialiseMaterialResources(vk_ctx, cmd_pool, root_node["Material Resources"], scene);
+			DeserialiseMaterialResources(vk_ctx, root_node["Material Resources"], scene);
 
 
 		if (root_node["SceneNodes"])
@@ -185,24 +185,24 @@ namespace Fluxon {
 			Scene::CreateNewRenderableComponent(scene, render_comp);
 	}
 
-	void SceneSerialiser::DeserialiseMeshResources(Vulkan::VulkanContext* vk_ctx, VkCommandPool cmd_pool, const YAML::Node& yaml_mesh_reso_node, Scene& scene)
+	void SceneSerialiser::DeserialiseMeshResources(Vulkan::VulkanContext* vk_ctx, const YAML::Node& yaml_mesh_reso_node, Scene& scene)
 	{
 		std::vector<MeshDescriptor> mesh_resources = yaml_mesh_reso_node.as<std::vector<MeshDescriptor>>();
 
 
 		for (auto& mesh_reso : mesh_resources)
-			Scene::CreateMesh(scene, vk_ctx, cmd_pool, mesh_reso.primitiveType, mesh_reso.modelPath);
+			Scene::CreateMesh(scene, vk_ctx, mesh_reso.primitiveType, mesh_reso.modelPath);
 
 	}
 
-	void SceneSerialiser::DeserialiseMaterialResources(Vulkan::VulkanContext* vk_ctx, VkCommandPool cmd_pool, const YAML::Node& yaml_mesh_reso_node, Scene& scene)
+	void SceneSerialiser::DeserialiseMaterialResources(Vulkan::VulkanContext* vk_ctx, const YAML::Node& yaml_mesh_reso_node, Scene& scene)
 	{
 		std::vector<MaterialDescriptor> mat_resources = yaml_mesh_reso_node.as<std::vector<MaterialDescriptor>>();
 
 
 		for (auto& mat_reso : mat_resources)
 		{
-			uint32_t idx = Scene::CreateNewMaterial(scene, nullptr, vk_ctx, cmd_pool, mat_reso.pbrPaths, mat_reso.format, mat_reso.anisotropicSampling);
+			uint32_t idx = Scene::CreateNewMaterial(scene, nullptr, vk_ctx, mat_reso.pbrPaths, mat_reso.format, mat_reso.anisotropicSampling);
 			//MaterialResource me = MaterialResource::CreatePBRMaterialResource(vk_ctx, cmd_pool, scene.GetMaterialByIdx(idx));
 		}
 	}

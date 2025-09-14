@@ -279,7 +279,7 @@ namespace Fluxon {
 	{
 		void SerialiseScene(const std::string& file_path, Scene& scene);
 
-		void LoadScene(Vulkan::VulkanContext* vk_ctx, VkCommandPool cmd_pool, const std::string& file_path, Scene& scene);
+		void LoadScene(Vulkan::VulkanContext* vk_ctx, const std::string& file_path, Scene& scene);
 
 	private:
 		//have a base class that is Seraialiable that object would overrider to serial datas
@@ -296,8 +296,8 @@ namespace Fluxon {
 
 		void DeserialiseSceneNodes(const YAML::Node& yaml_scene_node, Scene& scene);
 		void DeserialiseRenderableComponents(const YAML::Node& yaml_renderable_node, Scene& scene);
-		void DeserialiseMeshResources(Vulkan::VulkanContext* vk_ctx, VkCommandPool cmd_pool, const YAML::Node& yaml_mesh_reso_node, Scene& scene);
-		void DeserialiseMaterialResources(Vulkan::VulkanContext* vk_ctx, VkCommandPool cmd_pool, const YAML::Node& yaml_mesh_reso_node, Scene& scene);
+		void DeserialiseMeshResources(Vulkan::VulkanContext* vk_ctx, const YAML::Node& yaml_mesh_reso_node, Scene& scene);
+		void DeserialiseMaterialResources(Vulkan::VulkanContext* vk_ctx, const YAML::Node& yaml_mesh_reso_node, Scene& scene);
 
 	};
 

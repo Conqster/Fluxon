@@ -9,6 +9,9 @@
 #include "Renderer/FrameResources.h"
 #include "Renderer/RenderTarget.h"
 
+
+#include "Renderer/VulkanDescriptorSet.h"
+
 namespace Fluxon {
 	namespace Vulkan {
 
@@ -22,16 +25,17 @@ namespace Fluxon {
 			
 			GraphicsPipeline mGfxPipeline;
 
-			UniformBufferSpecification mLightMatrixUBOSpec;
-			GPUBuffer mLightMatrixUBO;
+			//UniformBufferSpecification mLightMatrixUBOSpec;
+			//GPUBuffer mLightMatrixUBO;
 
-			DescriptorSetSpecification mLightMatrixDescSetSpec;
+			//DescriptorSetSpecification mLightMatrixDescSetSpec;
 
-			VkDescriptorPool mDescriptorPool;
-			VkDescriptorSet mDescriptorSet;
+			///VkDescriptorPool mDescriptorPool;
+			//VkDescriptorSet mDescriptorSet;
 
+			VulkanDescriptorSet mNewDescriptorSet;
 		
-			GPUStructures::MVP_UniformBufferObject mLightMatrixUBOData;
+			//GPUStructures::MVP_UniformBufferObject mLightMatrixUBOData;
 		public:
 			void Init(class VulkanContext* vk_ctx, VkCommandPool cmd_pool);
 			void Init(class VulkanContext* vk_ctx) override {
@@ -57,10 +61,22 @@ namespace Fluxon {
 			}
 
 			void Begin(VulkanContext* ctx, VkCommandBuffer cmd_buff, uint32_t img_idx) override;
-			void UpdateLightMatrixBuffer(const glm::mat4 view_data, const glm::mat4 proj_data) {
-				mLightMatrixUBOData.view = view_data;
-				mLightMatrixUBOData.projection = proj_data;
-				Vulkan::GPUBuffer::CopyToMappedMemory(mLightMatrixUBO, &mLightMatrixUBOData, sizeof(GPUStructures::MVP_UniformBufferObject));
+			void UpdateLightMatrixBuffer(const glm::mat4 view_data, const glm::mat4 proj_data, uint32 frame_idx) {
+				GPUStructures::MVP_UniformBufferObject data;
+				data.view = view_data;
+				data.projection = proj_data;
+
+				mNewDescriptorSet.UpdateUBOBinding("light_matrix::light_matrix", &data, frame_idx);
+				//mNewDescriptorSet.SetUniformbuffer("light_matrix", &data, 1);
+				//mLightMatrixUBOData.view = view_data;
+				//mLightMatrixUBOData.projection = proj_data;
+				//Vulkan::GPUBuffer::CopyToMappedMemory(mLightMatrixUBO, &mLightMatrixUBOData, sizeof(GPUStructures::MVP_UniformBufferObject));
+			}
+
+			void UpdateLightMoveBuffer(const glm::vec4 _move, uint32 frame_idx) {
+				glm::vec4 data = _move;
+
+				mNewDescriptorSet.UpdateUBOBinding("light_matrix::move", &data, frame_idx);
 			}
 			void PushModelTransformConstant(VkCommandBuffer cmd_buff, const GPUStructures::Model* p_value) {
 				mGfxPipeline.PushConstant(cmd_buff, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(GPUStructures::Model), p_value);

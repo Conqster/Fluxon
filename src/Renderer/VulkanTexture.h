@@ -17,6 +17,7 @@ namespace Fluxon {
 
 
 
+
 namespace Fluxon {
 
 
@@ -24,10 +25,12 @@ namespace Fluxon {
 
 		struct TextureSpecification
 		{
-			u32 width = 0;
-			u32 height = 0;
-			u32 depth = 1;
+			uint32 width = 0;
+			uint32 height = 0;
+			uint32 depth = 1;
 			VkFormat format = VK_FORMAT_D32_SFLOAT;
+
+			std::vector<const char*> imageDiscPaths = {};
 
 			TextureUsageFlags usage = ETextureUsageBits::DepthAttachment | ETextureUsageBits::Sampled;
 			ETextureType type = ETextureType::Texture2D;
@@ -66,9 +69,9 @@ namespace Fluxon {
 			const VkImageView& GetImageView() const { return mImageView; }
 			const VkImageLayout& GetImageLayout() const { return mImageLayout; }
 		private:
-			u32 mWidth						= 0;
-			u32 mHeight						= 0;
-			u32 mDepth						= 0;
+			uint32 mWidth						= 0;
+			uint32 mHeight						= 0;
+			uint32 mDepth						= 0;
 
 			VkImage mImage					= VK_NULL_HANDLE;
 			VkDeviceMemory mMemory			= VK_NULL_HANDLE;
@@ -85,6 +88,8 @@ namespace Fluxon {
 			VkDescriptorSet mImguiDescSet	= VK_NULL_HANDLE;
 
 			VkImageLayout GetOptimalImageLayout(TextureUsageFlags usage_flag);
+
+			friend class VulkanDescriptorSet;
 		};
 	} //Vulkan
 } //namespace Fluxon

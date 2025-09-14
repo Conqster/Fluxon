@@ -37,6 +37,19 @@ namespace Fluxon {
 			} cursorMode = CURSOR_MODE::CURSOR_NORMAL;
 
 			bool windowResized = false;
+			bool windowMinimised = false;
+
+			inline const bool IsWindowMinimised() const {
+				return windowMinimised;
+			}
+
+			void OnUpdate() {
+				if (glfwWindowHandle == nullptr)
+					return;
+
+
+				glfwPollEvents();
+			}
 		};
 
 
@@ -79,6 +92,7 @@ namespace Fluxon {
 		bool IsCursorLocked(Window* window);
 		bool ShouldWindowClose(Window* window);
 		void DestroyWindow(Window* window);
+	
 
 	} // #Platform
 }//#Fluxon

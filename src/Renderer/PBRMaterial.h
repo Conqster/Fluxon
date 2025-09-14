@@ -36,6 +36,10 @@ namespace Fluxon {
 			/// </summary>
 			Resources::ImageSampler aoRM;
 
+
+			//hack for layout 
+			VkImageLayout imagelayout;
+
 #if DEBUG_MAT_HACK
 			DebugMaterial hackDebugMaterial{};
 			GPUBuffer hackDebugMaterialGPUBuffer{};
@@ -55,9 +59,9 @@ namespace Fluxon {
 			//static PBRMaterial CreatePBRMaterialMaps(VulkanContext* vk_ctx, VkCommandPool cmd_pool, std::array<const char*, SHADER_PBR_MATERIAL_MAX_MAPS> file_paths, VkFormat tex_image_format = VK_FORMAT_R8G8B8A8_SRGB, bool enable_anisotropu_sampling = true) {
 			static PBRMaterial CreatePBRMaterialMaps(VulkanContext* vk_ctx, VkCommandPool cmd_pool, std::array<std::string, SHADER_PBR_MATERIAL_MAX_MAPS> file_paths, VkFormat tex_image_format = VK_FORMAT_R8G8B8A8_SRGB, bool enable_anisotropu_sampling = true) {
 				PBRMaterial mat;
-				Vulkan::Resources::CreateImageSamplerTexture(vk_ctx, cmd_pool, file_paths[0].c_str(), tex_image_format, mat.albedo, enable_anisotropu_sampling);
-				Vulkan::Resources::CreateImageSamplerTexture(vk_ctx, cmd_pool, file_paths[1].c_str(), tex_image_format, mat.normal, enable_anisotropu_sampling);
-				Vulkan::Resources::CreateImageSamplerTexture(vk_ctx, cmd_pool, file_paths[2].c_str(), tex_image_format, mat.aoRM, enable_anisotropu_sampling);
+				Vulkan::Resources::CreateImageSamplerTexture(vk_ctx, cmd_pool, file_paths[0].c_str(), tex_image_format, mat.albedo, mat.imagelayout, enable_anisotropu_sampling);
+				Vulkan::Resources::CreateImageSamplerTexture(vk_ctx, cmd_pool, file_paths[1].c_str(), tex_image_format, mat.normal, mat.imagelayout, enable_anisotropu_sampling);
+				Vulkan::Resources::CreateImageSamplerTexture(vk_ctx, cmd_pool, file_paths[2].c_str(), tex_image_format, mat.aoRM, mat.imagelayout, enable_anisotropu_sampling);
 				return mat;
 			}
 

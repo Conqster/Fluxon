@@ -6,6 +6,8 @@
 
 #include "VulkanUtilities.h"
 
+#include "VulkanCommandBuffer.h"
+
 namespace Fluxon {
 	namespace Vulkan {
 
@@ -150,7 +152,8 @@ namespace Fluxon {
 		{
 			//TODO: might have one pool that all the bufer can use
 			VkCommandPool commandPool									= VK_NULL_HANDLE;
-			VkCommandBuffer commandBuffer								= VK_NULL_HANDLE;
+			//VkCommandBuffer commandBuffer								= VK_NULL_HANDLE;
+			VulkanCommandBuffer gfxCmdBuffer;
 
 			//sync objects (used per-frame)
 			VkSemaphore imageAvailable									= VK_NULL_HANDLE;
@@ -169,183 +172,16 @@ namespace Fluxon {
 			VkFence inFlight											= VK_NULL_HANDLE;
 
 			//compute 
-			VkCommandBuffer computeCommandBuffer						= VK_NULL_HANDLE;
+			//VkCommandBuffer computeCommandBuffer						= VK_NULL_HANDLE;
+			 VulkanCommandBuffer computeCmdBuffer;
 			//compute sync object
 			VkSemaphore computeCompleteSemaphore						= VK_NULL_HANDLE;
 			VkFence computeInFlight										= VK_NULL_HANDLE;
 
 
-			//NOTE(Conqster): Its nice for each frame to have thier own resource 
-			//but for expansion later its best to have a pool of resource that has semaphore&/ fences 
-			//that could be acquired by frame data or render pass. i.e resources like constants (resources that does not change frequency)
-			//with a fixed descriptor set & layout like (image sampler, level 2 camera that is fixed layout and global data could only change once per cpu cycle) 
-			//unlike model transform the changes extermely freq as all model would have different transforms. 
-			//so the constant resources count N could be (N > frame count) and managed that when a frame is acquired, a descriptor pool/&set is acquired based on availablity 
-			//not tied to frame data. later might explore render pass arcitecture rather than frame pass data arctecture 
-			VkDescriptorPool globalDescriptorPool						= VK_NULL_HANDLE;
-			std::vector<VkDescriptorSet> globalDescriptorSets			= {};
-
-
-			std::vector<DescriptorBinding> pendingDescriptorBindings	= {};
-			
-			GPUBuffer globalCameraUniformBuffer							= {};
-			GPUBuffer globalDirectionalLightUniformBuffer				= {};
-			GPUBuffer globalSkyboxUniformBuffer							= {};
-
-
-			const VkDescriptorSet& GetGlobalDescriptorSet(const DescriptorSetSpecification desc_set_spec) {
-				//saftey 
-				FLUX_DEBUG_ASSERT_CRITICAL(desc_set_spec.set <= globalDescriptorSets.size(), "Invalid Set index!!!!");
-				return globalDescriptorSets[desc_set_spec.set];
-			}
-
-
-			inline void AppendDescriptorBinding(const DescriptorBinding& descriptor_binding) {
-				pendingDescriptorBindings.push_back(descriptor_binding);
-			}
-
-			inline void WritePendingDescriptorBinding(VkDevice device) {
-
-				if (pendingDescriptorBindings.empty())
-					return;
-
-				std::vector<VkWriteDescriptorSet> descriptor_writes;
-				descriptor_writes.reserve(pendingDescriptorBindings.size());
-
-				for (size_t i = 0; i < pendingDescriptorBindings.size(); i++)
-				{
-					auto& curr_desc_bind = pendingDescriptorBindings[i];
-					auto& corresponding_desc_set = globalDescriptorSets[curr_desc_bind.set];
-
-					VkWriteDescriptorSet write{};
-					if (corresponding_desc_set != VK_NULL_HANDLE)
-					{
-						write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-						write.dstSet = corresponding_desc_set;
-						write.dstBinding = curr_desc_bind.binding;
-						write.dstArrayElement = 0;
-						write.descriptorCount = 1;
-						if (curr_desc_bind.type == DescriptorBinding::DescritorType::UniformBuffer)
-						{
-							write.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-							//TODO(Conqster): Need to find a work around
-							//VkDescriptorBufferInfo buffer_info{ubo.buffer, 0, ubo.range};
-							//descriptor_write.pBufferInfo = &buffer_info;
-							write.pBufferInfo = &curr_desc_bind.ubo.info;
-						}
-						else if (curr_desc_bind.type == DescriptorBinding::DescritorType::ImageSampler)
-						{
-							write.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-							//TODO(Conqster): Need to find a work around
-							//auto& img_sampler = descriptor_binding.image;
-							//image_info.sampler = descriptor_binding.image.sampler;
-							//image_info.imageView = descriptor_binding.image.imageView;
-							//image_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-							//descriptor_write.pImageInfo = &image_info;
-							write.pImageInfo = &curr_desc_bind.image.info;
-						}
-						descriptor_writes.emplace_back(write);
-					}
-					else
-					{
-						std::cout << "\033[1;33m [FRAME RESOURCES Descriptor write]\033[0m Descriptor set layout; set: " << curr_desc_bind.set << ", binding: " << curr_desc_bind.binding << " was not registered during 'Vulkan::GenerateFrameObjectDescriptorPoolSet(ctx, DescriptorSetSpecification, @frame_ref)' \n";
-					}
-
-
-
-				}
-
-				vkUpdateDescriptorSets(device, static_cast<uint32_t>(descriptor_writes.size()), descriptor_writes.data(), 0, nullptr);
-
-				//pendingDescriptorBindings.clear();
-			}
 		};
 
 
-		inline void CreateAndAppendFrameResourceUBO(const VulkanContext* vk_ctx, GPUBuffer& ubo, FrameResources& frame_resource, UniformBufferSpecification ubo_spec) {
-
-			GPUBuffer::CreateBuffer(vk_ctx, static_cast<VkDeviceSize>(ubo_spec.requiredSize), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-				VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-				ubo);
-
-			GPUBuffer::MapBufferMemory(vk_ctx->device, ubo);
-
-			frame_resource.AppendDescriptorBinding(Vulkan::DescriptorBinding::MakeUniformBuffer(ubo_spec.set, ubo_spec.binding, ubo));
-		}
-
-		inline void CreateAndAppendFrameDatasUniformBuffers(const VulkanContext* vk_ctx, std::vector<FrameResources>& frame_datas, std::vector<UniformBufferSpecification> ubo_specs) {
-
-			for (auto& frame : frame_datas)
-			{
-				for (auto& ubo_spec : ubo_specs)
-				{
-					//GPUBuffer& ubo = frame.globalDirectionalLightUniformBuffer;
-					switch (ubo_spec.type)
-					{
-					case GlobalUboType::Camera_UBO:
-						CreateAndAppendFrameResourceUBO(vk_ctx, frame.globalCameraUniformBuffer, frame, ubo_spec);
-						break;
-					case GlobalUboType::Skybox_UBO:
-						CreateAndAppendFrameResourceUBO(vk_ctx, frame.globalSkyboxUniformBuffer, frame, ubo_spec);
-						break;
-					case GlobalUboType::DirectionalLight_UBO:
-						CreateAndAppendFrameResourceUBO(vk_ctx, frame.globalDirectionalLightUniformBuffer, frame, ubo_spec);
-						break;
-					default:
-						continue;
-						//break;
-					}
-
-
-					//CreateBuffer(vk_ctx, static_cast<VkDeviceSize>(ubo_spec.requiredSize), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-					//	VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-					//	ubo);
-
-					//MapBufferMemory(vk_ctx->device, ubo);
-
-					//frame.AppendDescriptorBinding(Vulkan::DescriptorBinding::MakeUniformBuffer(ubo_spec.set, ubo_spec.binding, ubo));
-				}
-
-			}
-		}
-
-
-
-		inline void CreateFrameDatasUniformCameraBuffer(const VulkanContext* vk_ctx, std::vector<FrameResources>& frame_datas) {
-
-			for (auto& frame : frame_datas)
-			{
-				auto& ubo = frame.globalCameraUniformBuffer;
-				VkDeviceSize buffer_size = sizeof(GPUStructures::MVP_UniformBufferObject);
-
-				GPUBuffer::CreateBuffer(vk_ctx, buffer_size, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-					VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-					ubo);
-
-				//MapGPUBufferMemory(device->device, uniform_buffers[i], &uniform_buff_maps[i]);
-				GPUBuffer::MapBufferMemory(vk_ctx->device, ubo);
-
-				frame.AppendDescriptorBinding(Vulkan::DescriptorBinding::MakeUniformBuffer(0, 0, ubo));
-			}
-		}
-
-		inline void CreateFrameDatasDirectionalLightUniformbuffer(const VulkanContext* vk_ctx, std::vector<FrameResources>& frame_datas) {
-
-			for (auto& frame : frame_datas)
-			{
-				auto& ubo = frame.globalDirectionalLightUniformBuffer;
-				VkDeviceSize buffer_size = sizeof(GPUStructures::DirectionalLight);
-
-				GPUBuffer::CreateBuffer(vk_ctx, buffer_size, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-					VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-					ubo);
-
-				//MapGPUBufferMemory(device->device, uniform_buffers[i], &uniform_buff_maps[i]);
-				GPUBuffer::MapBufferMemory(vk_ctx->device, ubo);
-
-				frame.AppendDescriptorBinding(Vulkan::DescriptorBinding::MakeUniformBuffer(0, 2, ubo));
-			}
-		}
 
 		inline void CreateFrameObjects(const VulkanContext* vk_ctx, std::vector<FrameResources>& frame_data_objs) {
 
@@ -363,8 +199,8 @@ namespace Fluxon {
 			for (auto& frame_reso : frame_data_objs)
 			{
 				VkCommandPool& command_pool = frame_reso.commandPool;
-				VkCommandBuffer& command_buff = frame_reso.commandBuffer;
-				VkCommandBuffer& compute_cmd_buff = frame_reso.computeCommandBuffer;
+				//VkCommandBuffer& command_buff = frame_reso.commandBuffer;
+				//VkCommandBuffer& compute_cmd_buff = frame_reso.computeCommandBuffer;
 
 				VkFence& in_flight_fence = frame_reso.inFlight;
 				VkSemaphore& image_avail = frame_reso.imageAvailable;
@@ -376,19 +212,22 @@ namespace Fluxon {
 					throw std::runtime_error("Failed to create command pools!!!!");
 
 				//buffer create info
-				VkCommandBufferAllocateInfo allocation_info{};
-				allocation_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-				allocation_info.commandPool = command_pool;
-				allocation_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-				allocation_info.commandBufferCount = 1; //<-- one bufferr per pool per frame data
+				//VkCommandBufferAllocateInfo allocation_info{};
+				//allocation_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+				//allocation_info.commandPool = command_pool;
+				//allocation_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+				//allocation_info.commandBufferCount = 1; //<-- one bufferr per pool per frame data
 
 
-				//create buffer 
-				if (vkAllocateCommandBuffers(vk_ctx->device, &allocation_info, &command_buff) != VK_SUCCESS)
-					throw std::runtime_error("Failed to allocate command buffers!!!!!!");
+				////create buffer 
+				//if (vkAllocateCommandBuffers(vk_ctx->device, &allocation_info, &command_buff) != VK_SUCCESS)
+				//	throw std::runtime_error("Failed to allocate command buffers!!!!!!");
 
-				if (vkAllocateCommandBuffers(vk_ctx->device, &allocation_info, &compute_cmd_buff) != VK_SUCCESS)
-					throw std::runtime_error("Failed to allocate command buffers!!!!!!");
+				//if (vkAllocateCommandBuffers(vk_ctx->device, &allocation_info, &compute_cmd_buff) != VK_SUCCESS)
+				//	throw std::runtime_error("Failed to allocate command buffers!!!!!!");
+
+				frame_reso.gfxCmdBuffer.Init(vk_ctx->device, command_pool);
+				frame_reso.computeCmdBuffer.Init(vk_ctx->device, command_pool);
 
 
 				VkSemaphoreCreateInfo semaphore_create_info{};
@@ -413,88 +252,12 @@ namespace Fluxon {
 			}
 		}
 
-		inline void CreateDescriptorPool(VkDevice device, VkDescriptorPool& descriptor_pool)
+
+		inline void DestroyFrameObjects(const VulkanContext* vk_ctx, std::vector<FrameResources>& frame_data_objs)
 		{
-			//descriptor pool for uniform buffer
-			VkDescriptorPoolSize ubo_pool_size{};
-			ubo_pool_size.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-#if IMGUI_IN_USE
-			ubo_pool_size.descriptorCount = 1000;
-#else
-			ubo_pool_size.descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
-#endif // IMGUI_IN_USE
+			//std::vector<VkCommandBuffer> cmd_buffers;
+			//cmd_buffers.reserve(2 * frame_data_objs.size());
 
-
-
-			//descriptor pool for image sampler
-			VkDescriptorPoolSize sampler_pool_size{};
-			sampler_pool_size.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-#if IMGUI_IN_USE
-			sampler_pool_size.descriptorCount = 1000;
-#else
-			sampler_pool_size.descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
-#endif // IMGUI_IN_USE
-
-
-			//group pool size
-			std::array<VkDescriptorPoolSize, 2> grp_pool_sizes = { ubo_pool_size, sampler_pool_size };
-
-			VkDescriptorPoolCreateInfo pool_create_info{};
-			pool_create_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-			pool_create_info.poolSizeCount = static_cast<uint32_t>(grp_pool_sizes.size());
-			pool_create_info.pPoolSizes = grp_pool_sizes.data();
-
-#if IMGUI_IN_USE
-			//when using imgui because during shut down imgui 
-			//would attempt to free descriptor set 
-			pool_create_info.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
-
-			pool_create_info.maxSets = 1000 * grp_pool_sizes.size();
-#else
-			pool_create_info.maxSets = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
-#endif // IMGUI_IN_USE
-
-
-			if (vkCreateDescriptorPool(device, &pool_create_info, nullptr, &descriptor_pool) != VK_SUCCESS)
-				throw std::runtime_error("Failed to Create Descriptor Pool!!!!!!!");
-		}
-
-		inline void CreateDescriptorSet(VkDevice device, VkDescriptorPool& descriptor_pool, VkDescriptorSet& descriptor_sets, VkDescriptorSetLayout& descriptor_set_layout) {
-			//std::vector<VkDescriptorSetLayout> layouts(1, descriptor_set_layout);
-			VkDescriptorSetAllocateInfo alloc_info{};
-			alloc_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-			alloc_info.descriptorPool = descriptor_pool;
-			alloc_info.descriptorSetCount = 1;
-			alloc_info.pSetLayouts = &descriptor_set_layout;
-
-			if (vkAllocateDescriptorSets(device, &alloc_info, &descriptor_sets) != VK_SUCCESS)
-				throw std::runtime_error("Failed to allocate descriptor sets !!!!!!!");
-		}
-
-		inline void GenerateFrameObjectDescriptorPoolSet(VkDevice device, std::vector<DescriptorSetSpecification> descriptor_set_layout_specs, std::vector<FrameResources>& frame_datas) {
-
-			for (uint32_t i = 0; i < frame_datas.size(); i++)
-			{
-				auto& descriptor_pool = frame_datas[i].globalDescriptorPool;
-				CreateDescriptorPool(device, descriptor_pool);
-
-
-				//This makes this a bit dynamic
-				//so the only sets are only registed if need so based on the set value 
-				//
-				auto& descriptor_sets = frame_datas[i].globalDescriptorSets;
-				for (auto& descriptor_set_layout_spec : descriptor_set_layout_specs)
-				{
-					if (descriptor_set_layout_spec.set >= descriptor_sets.size())
-						descriptor_sets.resize(descriptor_set_layout_spec.set + 1);
-					CreateDescriptorSet(device, descriptor_pool, descriptor_sets[descriptor_set_layout_spec.set], descriptor_set_layout_spec.layoutHandle);
-				}
-			}
-
-		}
-
-		inline void DestroyFrameObjects(const VulkanContext* vk_ctx, std::vector<FrameResources> frame_data_objs)
-		{
 
 			//for (auto& [command_pool, command_buff, image_avail, in_flight_fence, descriptor_pool, descriptor_set, pending_desc_bind, uniform_buffer, uniform_buffer1, uniform_buffer2] : frame_data_objs)
 			for (auto& frame_reso : frame_data_objs)
@@ -507,12 +270,6 @@ namespace Fluxon {
 
 				VkCommandPool& command_pool = frame_reso.commandPool;
 
-				VkDescriptorPool& descriptor_pool = frame_reso.globalDescriptorPool;
-
-				GPUBuffer& ubo0 = frame_reso.globalCameraUniformBuffer;
-				GPUBuffer& ubo1 = frame_reso.globalDirectionalLightUniformBuffer;
-				GPUBuffer& ubo2 = frame_reso.globalSkyboxUniformBuffer;
-
 
 
 				auto& device = vk_ctx->device;
@@ -522,148 +279,17 @@ namespace Fluxon {
 				vkDestroyFence(device, compute_in_flight_fence, nullptr);
 				vkDestroySemaphore(device, compute_complete_semaphore, nullptr);
 
+				frame_reso.gfxCmdBuffer.Destroy(vk_ctx->device, command_pool);
+				frame_reso.computeCmdBuffer.Destroy(vk_ctx->device, command_pool);
+
+				//group free
+				//cmd_buffers.emplace_back(cmd_buffers);
+
 				vkDestroyCommandPool(device, command_pool, nullptr);
-
-				//vkFreeDescriptorSets(mDevice.device, mDescriptorPool, static_cast<uint32_t>(mDescriptorSets.size()), mDescriptorSets.data());
-				vkDestroyDescriptorPool(device, descriptor_pool, nullptr);
-
-				GPUBuffer::DestoryBuffer(vk_ctx->device, ubo0);
-				GPUBuffer::DestoryBuffer(vk_ctx->device, ubo1);
-				GPUBuffer::DestoryBuffer(vk_ctx->device, ubo2);
 			}
 		}
 
 
-
-
-
-		inline VkWriteDescriptorSet AppendDescriptorSetWrite(VkDescriptorSet& desc_set, const DescriptorBinding& descriptor_binding) {
-
-			VkWriteDescriptorSet descriptor_write{};
-			descriptor_write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-			descriptor_write.dstSet = desc_set;
-			descriptor_write.dstBinding = descriptor_binding.binding;
-			descriptor_write.dstArrayElement = 0;
-			descriptor_write.descriptorCount = 1;
-			if (descriptor_binding.type == DescriptorBinding::DescritorType::UniformBuffer)
-			{
-				descriptor_write.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-				//TODO(Conqster): Need to find a work around
-				//VkDescriptorBufferInfo buffer_info{ubo.buffer, 0, ubo.range};
-				//descriptor_write.pBufferInfo = &buffer_info;
-				descriptor_write.pBufferInfo = &descriptor_binding.ubo.info;
-			}
-			else if (descriptor_binding.type == DescriptorBinding::DescritorType::ImageSampler)
-			{
-				descriptor_write.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-				//TODO(Conqster): Need to find a work around
-				//auto& img_sampler = descriptor_binding.image;
-				//image_info.sampler = descriptor_binding.image.sampler;
-				//image_info.imageView = descriptor_binding.image.imageView;
-				//image_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-				//descriptor_write.pImageInfo = &image_info;
-				descriptor_write.pImageInfo = &descriptor_binding.image.info;
-			}
-			return descriptor_write;
-		}
-
-		inline void AppendDescriptorSetWrite(VkWriteDescriptorSet& writer, VkDescriptorImageInfo& image_info, VkDescriptorSet& desc_set, Vulkan::Resources::ImageSampler& img_sampler) {
-
-
-			writer.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-			writer.dstSet = desc_set;
-			writer.dstBinding = 1;
-			writer.dstArrayElement = 0;
-			writer.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-			writer.descriptorCount = 1;
-			writer.pImageInfo = &image_info;
-
-		}
-
-		//inline void UpdateFrameDataDescriptorSet(VkDevice device, const std::vector<DescriptorBinding>& descriptor_bindings, FrameData& frame_data) {
-
-		//	VkDescriptorSet descriptor_set = frame_data.descriptorSet;
-		//	std::vector<VkWriteDescriptorSet> desc_writes(descriptor_bindings.size());
-		//	for (size_t i = 0; i < descriptor_bindings.size(); i++)
-		//		desc_writes[i] = WriteDescriptorSet(device, descriptor_set,descriptor_bindings[i]);
-
-		//	vkUpdateDescriptorSets(device, static_cast<uint32_t>(desc_writes.size()), desc_writes.data(), 0, nullptr);
-		//}
-
-
-		//inline void UpdateFrameDataDescriptorSet(VkDevice device, const std::vector<DescriptorBinding>& descriptor_bindings, FrameData* frame_data) {
-
-		//	if (!frame_data)
-		//		throw std::runtime_error("No Frames available");
-		//	
-		//	uint32_t frames_count = sizeof(frame_data) / sizeof(FrameData);
-		//	for (uint32_t i = 0; i < frames_count; i++)
-		//	{
-		//		VkDescriptorSet descriptor_set = frame_data[i].descriptorSet;
-
-		//		std::vector<VkWriteDescriptorSet> desc_writes(descriptor_bindings.size());
-		//		for (size_t i = 0; i < descriptor_bindings.size(); i++)
-		//			desc_writes[i] = WriteDescriptorSet(device, descriptor_set, descriptor_bindings[i]);
-
-		//		vkUpdateDescriptorSets(device, static_cast<uint32_t>(desc_writes.size()), desc_writes.data(), 0, nullptr);
-		//	}
-		//}
-
-
-		inline void CreatePipelineUniformBuffer(const VulkanContext* vk_ctx, std::vector<GPUBuffer>& uniform_buffers, std::vector<FrameResources>& frame_data) {
-
-
-			VkDeviceSize buffer_size = sizeof(GPUStructures::MVP_UniformBufferObject);
-
-			uniform_buffers.resize(frame_data.size());
-
-			for (size_t i = 0; i < frame_data.size(); i++)
-			{
-
-				GPUBuffer::CreateBuffer(vk_ctx, buffer_size, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-					VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-					uniform_buffers[i]);
-
-				//MapGPUBufferMemory(device->device, uniform_buffers[i], &uniform_buff_maps[i]);
-				GPUBuffer::MapBufferMemory(vk_ctx->device, uniform_buffers[i]);
-
-				frame_data[i].AppendDescriptorBinding(Vulkan::DescriptorBinding::MakeUniformBuffer(0, 0, uniform_buffers[i]));
-			}
-		}
-
-
-
-
-		////Utility to call with Vulkancontext to deprecated Device structure
-		//inline void CreateFrameObjects(const Vulkan2::VulkanContext* vk_render_ctx, std::vector<FrameData>& frame_data_objs) {
-
-		//	Device temp_sys_device;
-		//	temp_sys_device.instance = vk_render_ctx->instance;
-		//	temp_sys_device.physicalDevice = vk_render_ctx->physicalDevice;
-		//	temp_sys_device.device = vk_render_ctx->device;
-		//	temp_sys_device.surface = vk_render_ctx->surface;
-		//	temp_sys_device.graphicsQueue = vk_render_ctx->graphicsQueue;
-		//	temp_sys_device.presentQueue = vk_render_ctx->presentQueue;
-		//	temp_sys_device.queueFamilyIndices = vk_render_ctx->queueFamilyIndices;
-		//	temp_sys_device.debugMessager = vk_render_ctx->debugMessager;
-
-		//	CreateFrameObjects(&temp_sys_device, frame_data_objs);
-		//}
-
-
-		//inline void CreateFrameDatasUniformBuffer(const Vulkan2::VulkanContext* vk_render_ctx, std::vector<FrameData>& frame_datas) {
-		//	Device temp_sys_device;
-		//	temp_sys_device.instance = vk_render_ctx->instance;
-		//	temp_sys_device.physicalDevice = vk_render_ctx->physicalDevice;
-		//	temp_sys_device.device = vk_render_ctx->device;
-		//	temp_sys_device.surface = vk_render_ctx->surface;
-		//	temp_sys_device.graphicsQueue = vk_render_ctx->graphicsQueue;
-		//	temp_sys_device.presentQueue = vk_render_ctx->presentQueue;
-		//	temp_sys_device.queueFamilyIndices = vk_render_ctx->queueFamilyIndices;
-		//	temp_sys_device.debugMessager = vk_render_ctx->debugMessager;
-
-		//	CreateFrameDatasUniformBuffer(&temp_sys_device, frame_datas);
-		//}
 
 
 

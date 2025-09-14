@@ -31,32 +31,18 @@
 
 #include "Core.h"
 
+#include "Editor/EditorPanel.h"
+
+#include "Renderer/VulkanDescriptorSet.h"
+
+#include <functional>
+
 namespace Fluxon {
-
-	namespace Vulkan {
-	
-		//Propably move this into vulkanContext struct/class 
-		inline void BeginGfxFrameCommand(VulkanContext& vk_render_ctx, Vulkan::FrameResources& frame_reso, uint32_t& o_img_idx,
-							const Platform::Window& window, VkRenderPass render_pass, UI_System* ui_in_use = nullptr);
-
-		inline void EndGfxFrameCommand(FrameResources& frame_reso, VulkanContext& vk_render_ctx, uint32_t img_idx);
-		
-		
-		inline void SwapPresentFrameImage(FrameResources& frame_reso, VulkanContext& vk_render_ctx, uint32_t img_idx, Platform::Window& window, VkRenderPass render_pass);
-		
-		inline void BeginComputeFrameCommand(VulkanContext& vk_render_ctx, FrameResources& frame_resources, class ComputePass* compute_pass = nullptr);
-		inline void EndComputeFrameCommand(VulkanContext& vk_render_ctx, FrameResources& frame_reso);
-
-		inline void WindowResizedRecreateResource2(VulkanContext& vk_render_ctx, const Platform::Window& window, VkCommandPool cmd_pool, VkRenderPass render_pass);
-	
-	}
-	
-
 
 	class SceneRuntime : public NonCopyable
 	{
 	private:
-		Vulkan::VulkanContext mVulkanContext;
+		Vulkan::VulkanContext* mVulkanContext;
 
 		//TODO(Conqster) : This class should not manage window nor camera
 		Platform::Window* mWindow = nullptr;
@@ -64,13 +50,18 @@ namespace Fluxon {
 
 		std::vector<Vulkan::FrameResources> mFrames;
 
+		Vulkan::VulkanDescriptorSet mDescriptorSet;
+
+
+
 		//VkDescriptorSetLayout mDescriptorSetLayout;
 		bool mUseSamplingAnisotropy = false;
 
 		GPUStructures::DirectionalLight mDirLight;
-		GPUStructures::Skybox mSkybox;
+		GPUStructures::SkyboxProperties mSkybox;
 
-		UI_System mImGuiUI;
+		//UI_System* mImGuiUI;
+		//UI::EditorUI mEditorUI;
 
 		Scene mScene;
 
@@ -91,78 +82,97 @@ namespace Fluxon {
 
 		Vulkan::DebugLine mDebugLines;
 	public:
-		void Init(Platform::Window& window, Camera* app_cam_ref = nullptr);
+		void Init(Vulkan::VulkanContext* gfx_ctx, Camera* app_cam_ref = nullptr);
 
-		void SetIMGUI(UI_System& ui) {
-			mImGuiUI = ui;
+		void SetIMGUI(/*UI_System& ui*/) {
+			//mImGuiUI = &ui;
 
-			Vulkan::Resources::ImGui_Texture_Test::CreateTexture(&mVulkanContext, mFrames[0].commandPool,
+			Vulkan::Resources::ImGui_Texture_Test::CreateTexture(mVulkanContext, mFrames[0].commandPool,
 				//"textures/Manchester_512.png",
 				"assets/textures/melady_square.jpg",
-				VK_FORMAT_R8G8B8A8_SRGB, experiment_texture,
+				VK_FORMAT_R8G8B8A8_SRGB
+				/*VK_FORMAT_R8G8B8A8_UNORM*/, experiment_texture,
 				mUseSamplingAnisotropy);
 			mScene.mSceneResources.experiment_texture = &experiment_texture;
 
 			auto& voxelRT = mSceneCollsionVoxelPass.GetDepthRenderTarget();
 			if (!voxelRT.targetMask.Contains(ERenderTargetBits::ImGuiView))
-				Vulkan::RenderTarget::MakeRenderTarget(&mVulkanContext, voxelRT, ERenderTargetBits::ImGuiView);
+				Vulkan::RenderTarget::MakeRenderTarget(mVulkanContext, voxelRT, ERenderTargetBits::ImGuiView);
+
+
+
+			//Vulkan::ForwardRenderPass* forward_render_pass =;
+			//auto& sceneRT = mScene.GetForwardRenderPass()->GetColourRenderTarget();
+			auto& sceneRT = mScene.GetForwardRenderPass()->GetOutputRT(0);
+			if (!sceneRT.targetMask.Contains(ERenderTargetBits::ImGuiView))
+				Vulkan::RenderTarget::MakeRenderTarget(mVulkanContext, sceneRT, ERenderTargetBits::ImGuiView);
+
+			mScene.mSceneResources.sceneRenderOutput = &sceneRT;
 		}
 
 		std::vector<Vulkan::FrameResources>& GetFrames() { return mFrames; }
 		//ForwardRenderPass& GetForwardRenderPass() { return mForwardRenderPass; }
-		Vulkan::VulkanContext& GetVulkanContext() { return mVulkanContext; }
+		Vulkan::VulkanContext& GetVulkanContext() { return *mVulkanContext; }
 		//Device& GetDeprecatedDevice() { return mDevice; }
 
 		Scene& GetScene() { return mScene; }
 
 		void CreateModelSceneDescriptionSetLayout(Vulkan::VulkanContext* vk_ctx, Vulkan::DescriptorSetSpecification& description_set_spec);
 		void CreateSkyboxDescriptionSetLayout(VkDevice d, Vulkan::DescriptorSetSpecification& description_set_spec);
-		//probably need a system to fill set minimymum - 1 towards zero 
-		//becaasuse vulkan required set from 0 sequencly up 
-		void CreateDummyDescriptionSetLayout(Vulkan::VulkanContext* vk_ctx, Vulkan::DescriptorSetSpecification& description_set_spec, uint32_t set);
 
 
-		//Create Test resources 
-		void CreateTestSceneData(const Vulkan::VulkanContext* vk_ctx, VkCommandPool cmd_pool);
 
 		void Update(float delta_time, Platform::Window* p_window, Camera* p_frame_camera);
 		//void DrawScene2(Camera* camera, glm::vec3 translate_model, glm::vec3 rotate_axis);
 
+		void ResizeFunction(uint32 width, uint32 height);
+		void OnViewportResize(uint32 width, uint32 height);
+
+
+		std::function<void(const Vulkan::VulkanContext* vk_ctx, VkCommandBuffer cmd_buff, uint32 swapchain_img_idx)> mOnUIRenderCallback;
+		std::function<void(const Vulkan::VulkanContext* vk_ctx, uint32 w, uint32 h)> mOnSwapchainUICallback;
+
 		void UpdateGlobalFrameDataUBO(Vulkan::FrameResources& frame_resources, float win_width, float win_height, glm::mat4 light_view, glm::mat4 light_proj);
 		//void RecordRenderPass(VkCommandBuffer cmd_buff, ForwardRenderPass& pass, const FrameResources& frame_resources, uint32_t img_idx, VkExtent2D render_area_extent, UI_System* ui_in_use = nullptr);
 
-		void SceneUIWindow();
-
-		void Cleanup() {
+		void PreCleanup() {
 			//SerialiseScene("assets/scenes/experiment.fluxon", mScene);
 			SceneSerialiser scene_serialiser;
 			scene_serialiser.SerialiseScene("assets/scenes/experiment.fluxon", mScene);
 			//SerialiseScene("experiment.fluxon", mScene);
 
-			vkDeviceWaitIdle(mVulkanContext.device);
+			Vulkan::Resources::ImGui_Texture_Test::Destroy(mVulkanContext->device, experiment_texture);
+		}
 
-			mDebugLines.Cleanup(&mVulkanContext);
+		void Cleanup() {
 
-			Vulkan::Resources::ImGui_Texture_Test::Destroy(mVulkanContext.device, experiment_texture);
+			vkDeviceWaitIdle(mVulkanContext->device);
+
+			mDebugLines.Cleanup(mVulkanContext);
+
 			
-			mImGuiUI.Shutdown();
+			mDescriptorSet.Destory();
 
+			Vulkan::DestroyFrameObjects(mVulkanContext, mFrames);
 
-			Vulkan::DestroyFrameObjects(&mVulkanContext, mFrames);
+			mShadowGfxPass.Cleanup(mVulkanContext);
+			mComputePass.Cleanup(mVulkanContext);
+			mSceneCollsionVoxelPass.Cleanup(mVulkanContext);
 
-			mShadowGfxPass.Cleanup(&mVulkanContext);
-			mComputePass.Cleanup(&mVulkanContext);
+			mScene.DestroyScene(mVulkanContext);
 
-			mScene.DestroyScene(&mVulkanContext);
-
-			mVulkanContext.swapchain->Cleanup();
+			mVulkanContext->swapchain->Cleanup(mVulkanContext);
 
 			//Vulkan::DestroyDevice(&mDevice, true);
-			mVulkanContext.DestroyVulkanContext(true);
+			mVulkanContext->DestroyVulkanContext(true);
 		}
 
 		bool Model_Transform_Editor_Panel_UI(glm::mat4& transform);
 
 		void DebugInputKeyUI();
+
+
+		void LoadSceneFromFile(Vulkan::VulkanContext* vk_ctx, const char* scene_path, Scene& scene, Camera* cam_ref);
+		void CreateSceneFromCode(Vulkan::VulkanContext* vk_ctx, Scene& scene, Camera* cam_ref);
 	};
 } //#Fluxon

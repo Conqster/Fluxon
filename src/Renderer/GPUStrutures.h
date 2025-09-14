@@ -230,7 +230,7 @@ namespace Fluxon {
 			int shinness = 64;
 		};
 
-		struct Skybox {
+		struct SkyboxProperties {
 			float skyboxInfluencity = 0.2f;
 			float objectReflectivity = 0.2f; //<-- hack remove later
 			int enable = 0;

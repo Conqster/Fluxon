@@ -14,7 +14,8 @@ namespace Fluxon {
 			gfx_specification.renderPass = mRenderPass;
 
 			//add required descriptor set layout & push constant 
-			gfx_specification.descriptorSetLayouts = {mLightMatrixDescSetSpec.layoutHandle};
+			//gfx_specification.descriptorSetLayouts = {mLightMatrixDescSetSpec.layoutHandle};
+			gfx_specification.descriptorSetLayouts = {mNewDescriptorSet.GetSetLayoutHandle("light_matrix")/*, mNewDescriptorSet.GetLayoutHandle("move")*/ };
 
 			VkPushConstantRange push_constant_range{};
 			push_constant_range.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
@@ -55,82 +56,154 @@ namespace Fluxon {
 		}
 		bool ShadowRenderPass::CreateLightDescriptorSetLayoutAndUBO(VulkanContext* vk_ctx)
 		{
-			//maybe later have a uniform buffer spec info that includes everything required for thes buffer & desc set
-			//set 
-			//binding
-			//stage flag 
-			mLightMatrixUBOSpec.type = GlobalUboType::Unknown; //<-- leave as unknown only used in config frame data
-														  //resource not necessary here
-			mLightMatrixUBOSpec.set = 0;
-			mLightMatrixUBOSpec.binding = 0;
-			mLightMatrixUBOSpec.requiredSize = sizeof(GPUStructures::MVP_UniformBufferObject);
+			//look into bining
+			// meaning all descriptores / bindings are created and 
+			// on construction we look through all the bindins and bin them in the 
+			// appropraite bin then construct relivate data
+			// 
+			// rhis way we wouldnt have to combine the name for retriving binding update 
+			// just write given name a key would have its set and binding
+			//
 
-			mLightMatrixDescSetSpec.set = mLightMatrixUBOSpec.set;
-			VkDescriptorSetLayoutBinding layout_binding{};
-			layout_binding.binding = mLightMatrixUBOSpec.binding;
-			layout_binding.descriptorCount = 1;
-			layout_binding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-			layout_binding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-			layout_binding.pImmutableSamplers = nullptr;
+			
+			//this is common data descriptor
+			DescriptorBindingInfo light_matric_ubo_desc{};
+			light_matric_ubo_desc.name = "light_matrix";
+			light_matric_ubo_desc.binding = 0;
+			light_matric_ubo_desc.stageFlag = VK_SHADER_STAGE_VERTEX_BIT;
+			light_matric_ubo_desc.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+			light_matric_ubo_desc.descType = EDescriptorType::UniformBuffer;
+			light_matric_ubo_desc.bufferSize = static_cast<uint32>(sizeof(GPUStructures::MVP_UniformBufferObject));
+			//light_matric_ubo_desc.data.type = EDescriptorType::UniformBuffer;
+			//light_matric_ubo_desc.data.bufferInfo = {VK_NULL_HANDLE, 0, sizeof(GPUStructures::MVP_UniformBufferObject) };
 
-			VkDescriptorSetLayoutCreateInfo layout_create_info{};
-			layout_create_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-			layout_create_info.bindingCount = 1;
-			layout_create_info.pBindings = &layout_binding;
+			DescriptorBindingInfo move_ubo_desc{};
+			move_ubo_desc.name = "move";
+			move_ubo_desc.binding = 1;
+			move_ubo_desc.stageFlag = VK_SHADER_STAGE_VERTEX_BIT;
+			move_ubo_desc.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+			//move_ubo_desc.data.type = EDescriptorType::UniformBuffer;
+			//move_ubo_desc.data.bufferInfo = { VK_NULL_HANDLE, 0, sizeof(glm::mat4) };
+			move_ubo_desc.descType = EDescriptorType::UniformBuffer;
+			move_ubo_desc.bufferSize = static_cast<uint32>(sizeof(GPUStructures::MVP_UniformBufferObject));
 
-			if (vkCreateDescriptorSetLayout(vk_ctx->device, &layout_create_info, nullptr, &mLightMatrixDescSetSpec.layoutHandle) != VK_SUCCESS)
-				throw std::runtime_error("Failed to create descriptor set layout!!!!!!!!");
+			//a layout for a set
+			DescriptorLayoutInfo desc_layout_info{};
+			desc_layout_info.name = "light_matrix";
+			//desc_layout_info.requiredDescriptorDataByIdx = { 0, 1 };   //<-- use the first one i.e light_matrix_ubo_desc
+			desc_layout_info.requiredBindings = { light_matric_ubo_desc, move_ubo_desc };   //<-- use the first one i.e light_matrix_ubo_desc
 
-
-			//create uniform buffer 
-			GPUBuffer::CreateBuffer(vk_ctx, static_cast<VkDeviceSize>(mLightMatrixUBOSpec.requiredSize), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-				VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-				mLightMatrixUBO);
-
-			GPUBuffer::MapBufferMemory(vk_ctx->device, mLightMatrixUBO);
-
-
-			//descriptor pool
-			VkDescriptorPoolSize ubo_pool_size{};
-			ubo_pool_size.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-			ubo_pool_size.descriptorCount = 1;
-			VkDescriptorPoolCreateInfo pool_create_info{};
-			pool_create_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-			pool_create_info.poolSizeCount = 1;
-			pool_create_info.pPoolSizes = &ubo_pool_size;
-			pool_create_info.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
-			pool_create_info.maxSets = 1;
-
-			if (vkCreateDescriptorPool(vk_ctx->device, &pool_create_info, nullptr, &mDescriptorPool) != VK_SUCCESS)
-				throw std::runtime_error("Failed to Create Descriptor Pool!!!!!!!");
+			//DescriptorLayoutInfo desc_layout_info1{};
+			//desc_layout_info1.name = "move";
+			//desc_layout_info1.requiredDescriptorDataByIdx = { 1 };   //<-- use the first one i.e light_matrix_ubo_desc
 
 
-			VkDescriptorSetAllocateInfo alloc_info{};
-			alloc_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-			alloc_info.descriptorPool = mDescriptorPool;
-			alloc_info.descriptorSetCount = 1;
-			alloc_info.pSetLayouts = &mLightMatrixDescSetSpec.layoutHandle;
+			DescriptorSetInfo desc_set_info{};
+			desc_set_info.name = "light_matrix";
+			desc_set_info.set = 0;
+			desc_set_info.requiredLayouts = { "light_matrix" };
 
-			if (vkAllocateDescriptorSets(vk_ctx->device, &alloc_info, &mDescriptorSet) != VK_SUCCESS)
-				throw std::runtime_error("Failed to allocate descriptor sets !!!!!!!");
+			DescriptorSpecification desc_set_spec{};
+			desc_set_spec.frameInFlight = 2;
+			desc_set_spec.bTightFitDescriporPool = false;
+			//desc_set_spec.descriptors = { light_matric_ubo_desc, move_ubo_desc };
+			desc_set_spec.layoutInfos = { desc_layout_info/*, desc_layout_info1*/ };
+			desc_set_spec.setsInfos = { desc_set_info };
 
 
 
-			VkWriteDescriptorSet descriptor_writes;
-			descriptor_writes.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-			descriptor_writes.pNext = nullptr;
-			descriptor_writes.dstSet = mDescriptorSet;
-			descriptor_writes.dstBinding = mLightMatrixUBOSpec.binding;
-			descriptor_writes.dstArrayElement = 0;
-			descriptor_writes.descriptorCount = 1;
-			descriptor_writes.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-			VkDescriptorBufferInfo desc_buff_info{};
-			desc_buff_info.buffer = mLightMatrixUBO.buffer;
-			desc_buff_info.range = mLightMatrixUBO.size;
-			descriptor_writes.pBufferInfo = &desc_buff_info;
+			mNewDescriptorSet.Create(vk_ctx, desc_set_spec);
+
+			////mNewDescriptorSet.PushDescriptorSet("light_matrix", 0, EDescriptorBuffering::Double);
+			////mNewDescriptorSet.SetDescriptorSetBuffering("light_matrix", EDescriptorBuffering::Single);
+			////mNewDescriptorSet.PushDescriptorSet("light_matrix", 0, EDescriptorBuffering::Double);
+			////mNewDescriptorSet.SetDescriptorSetBuffering("light_matrix", EDescriptorBuffering::Double);
+			////mNewDescriptorSet.PushDescriptorSet("light_matrix", 0, EDescriptorBuffering::Double);
+
+			////mNewDescriptorSet.PushUBOBinding("move", "light_matrix", 1, sizeof(glm::mat4));
+			//mNewDescriptorSet.PushUBOBinding("light_matrix::move", "light_matrix", 1, sizeof(glm::mat4));
+			////mNewDescriptorSet.PushUniformbuffer("light_matrix", "light_matrix", 0, sizeof(GPUStructures::MVP_UniformBufferObject));
+			//mNewDescriptorSet.BakePendingWrites();
 
 
-			vkUpdateDescriptorSets(vk_ctx->device, 1, &descriptor_writes, 0, nullptr);
+			printf("hgdnjhndg");
+
+			////maybe later have a uniform buffer spec info that includes everything required for thes buffer & desc set
+			////set 
+			////binding
+			////stage flag 
+			//mLightMatrixUBOSpec.type = GlobalUboType::Unknown; //<-- leave as unknown only used in config frame data
+			//											  //resource not necessary here
+			//mLightMatrixUBOSpec.set = 0;
+			//mLightMatrixUBOSpec.binding = 0;
+			//mLightMatrixUBOSpec.requiredSize = sizeof(GPUStructures::MVP_UniformBufferObject);
+
+			//mLightMatrixDescSetSpec.set = mLightMatrixUBOSpec.set;
+			//VkDescriptorSetLayoutBinding layout_binding{};
+			//layout_binding.binding = mLightMatrixUBOSpec.binding;
+			//layout_binding.descriptorCount = 1;
+			//layout_binding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+			//layout_binding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+			//layout_binding.pImmutableSamplers = nullptr;
+
+			//VkDescriptorSetLayoutCreateInfo layout_create_info{};
+			//layout_create_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+			//layout_create_info.bindingCount = 1;
+			//layout_create_info.pBindings = &layout_binding;
+
+			//if (vkCreateDescriptorSetLayout(vk_ctx->device, &layout_create_info, nullptr, &mLightMatrixDescSetSpec.layoutHandle) != VK_SUCCESS)
+			//	throw std::runtime_error("Failed to create descriptor set layout!!!!!!!!");
+
+
+			////create uniform buffer 
+			//GPUBuffer::CreateBuffer(vk_ctx, static_cast<VkDeviceSize>(mLightMatrixUBOSpec.requiredSize), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+			//	VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+			//	mLightMatrixUBO);
+
+			//GPUBuffer::MapBufferMemory(vk_ctx->device, mLightMatrixUBO);
+
+
+			////descriptor pool
+			//VkDescriptorPoolSize ubo_pool_size{};
+			//ubo_pool_size.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+			//ubo_pool_size.descriptorCount = 1;
+			//VkDescriptorPoolCreateInfo pool_create_info{};
+			//pool_create_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+			//pool_create_info.poolSizeCount = 1;
+			//pool_create_info.pPoolSizes = &ubo_pool_size;
+			//pool_create_info.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
+			//pool_create_info.maxSets = 1;
+
+			//if (vkCreateDescriptorPool(vk_ctx->device, &pool_create_info, nullptr, &mDescriptorPool) != VK_SUCCESS)
+			//	throw std::runtime_error("Failed to Create Descriptor Pool!!!!!!!");
+
+
+			//VkDescriptorSetAllocateInfo alloc_info{};
+			//alloc_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+			//alloc_info.descriptorPool = mDescriptorPool;
+			//alloc_info.descriptorSetCount = 1;
+			//alloc_info.pSetLayouts = &mLightMatrixDescSetSpec.layoutHandle;
+
+			//if (vkAllocateDescriptorSets(vk_ctx->device, &alloc_info, &mDescriptorSet) != VK_SUCCESS)
+			//	throw std::runtime_error("Failed to allocate descriptor sets !!!!!!!");
+
+
+
+			//VkWriteDescriptorSet descriptor_writes;
+			//descriptor_writes.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+			//descriptor_writes.pNext = nullptr;
+			//descriptor_writes.dstSet = mDescriptorSet;
+			//descriptor_writes.dstBinding = mLightMatrixUBOSpec.binding;
+			//descriptor_writes.dstArrayElement = 0;
+			//descriptor_writes.descriptorCount = 1;
+			//descriptor_writes.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+			//VkDescriptorBufferInfo desc_buff_info{};
+			//desc_buff_info.buffer = mLightMatrixUBO.buffer;
+			//desc_buff_info.range = mLightMatrixUBO.size;
+			//descriptor_writes.pBufferInfo = &desc_buff_info;
+
+
+			//vkUpdateDescriptorSets(vk_ctx->device, 1, &descriptor_writes, 0, nullptr);
 
 
 			return true;
@@ -296,7 +369,10 @@ namespace Fluxon {
 			mGfxPipeline.Bind(cmd_buff);
 
 			//Bind descriptor sets Light matrix 
-			mGfxPipeline.BindDescriptorSets(cmd_buff, &mDescriptorSet);
+			//mGfxPipeline.BindDescriptorSets(cmd_buff, &mDescriptorSet);
+			std::vector<VkDescriptorSet> desc_set = { mNewDescriptorSet.GetHandle("light_matrix") };
+			mGfxPipeline.BindDescriptorSets(cmd_buff, desc_set.data());
+
 		}
 
 		void ShadowRenderPass::End(VkCommandBuffer cmd_buff)
@@ -306,20 +382,23 @@ namespace Fluxon {
 
 		void ShadowRenderPass::Cleanup(VulkanContext* ctx)
 		{
-			vkDestroyRenderPass(ctx->device, mRenderPass, nullptr);
+			if(mRenderPass != VK_NULL_HANDLE)
+				vkDestroyRenderPass(ctx->device, mRenderPass, nullptr);
 
 
 			mGfxPipeline.Cleanup(ctx);
 
-			GPUBuffer::DestoryBuffer(ctx->device, mLightMatrixUBO);
+			mNewDescriptorSet.Destory();
+
+			//GPUBuffer::DestoryBuffer(ctx->device, mLightMatrixUBO);
 			RenderTarget::DestoryRenderTraget(ctx->device, mDepthRenderTarget);
 
 			Framebuffer::DestroyFramebuffer(ctx->device, mDepthFramebuffer);
 
 			//DescriptorSetSpecification
-			vkDestroyDescriptorSetLayout(ctx->device, mLightMatrixDescSetSpec.layoutHandle, nullptr);
+			//vkDestroyDescriptorSetLayout(ctx->device, mLightMatrixDescSetSpec.layoutHandle, nullptr);
 			
-			vkDestroyDescriptorPool(ctx->device, mDescriptorPool, nullptr);
+			//vkDestroyDescriptorPool(ctx->device, mDescriptorPool, nullptr);
 		}
 
 

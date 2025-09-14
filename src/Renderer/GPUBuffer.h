@@ -35,7 +35,7 @@ namespace Fluxon {
 				return mapped != nullptr;
 			}
 
-			static void CreateBuffer(const VulkanContext* vk_ctx, VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, GPUBuffer& gpu_buffer);
+			static void CreateBuffer(const VulkanContext* vk_ctx, uint32 size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, GPUBuffer& gpu_buffer);
 			static bool MapBufferMemory(VkDevice device, GPUBuffer& gpu_buffer);
 			/// <summary>
 			/// Map for future write

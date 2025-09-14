@@ -94,6 +94,7 @@ void main()
 	if(uCam.useMaterialSystem)
 	{
 		vec3 albedo = pow(texture(albedoMap, vFragTexCoord).rgb, vec3(2.2f));
+		//vec3 albedo = texture(albedoMap, vFragTexCoord).rgb;
 		vec3 ao_rough_metallic = texture(aoRMMap, vFragTexCoord).rgb;
 		float ao = ao_rough_metallic.r;
 		float roughness = ao_rough_metallic.g;
@@ -167,19 +168,23 @@ void main()
 	{
 		//base_colour *= pow(texture(inTexSampler, vFragTexCoord).rgb, vec3(2.2f));
 		vec3 ao_rough_metallic = pow(texture(aoRMMap, vFragTexCoord).rgb, vec3(2.2f));
+		//vec3 ao_rough_metallic = texture(aoRMMap, vFragTexCoord).rgb;
 		
 		if(uSkybox._padding == 0)
 		{
 			base_colour *= pow(texture(inTexSampler, vFragTexCoord).rgb, vec3(2.2f));
+			//base_colour *= texture(inTexSampler, vFragTexCoord).rgb;
 			//base_colour *= pow(texture(uShadowMap, vFragTexCoord).rgb, vec3(2.2f));
 		}
 		else if(uSkybox._padding == 1)
 		{
+			///base_colour *= texture(albedoMap, vFragTexCoord).rgb;
 			base_colour *= pow(texture(albedoMap, vFragTexCoord).rgb, vec3(2.2f));
 		}
 		else if(uSkybox._padding == 2)
 		{
 			base_colour *= pow(texture(normalMap, vFragTexCoord).rgb, vec3(2.2f));
+			//base_colour *= texture(normalMap, vFragTexCoord).rgb;
 		}
 		else if(uSkybox._padding == 3)
 		{

@@ -38,7 +38,7 @@ namespace Fluxon {
 		}
 		void Mesh::CreateVertexBuffer(const VulkanContext* vk_ctx, VkCommandPool cmd_pool, std::vector<GPUStructures::Vertex>& vertices)
 		{
-			VkDeviceSize buffer_size = sizeof(vertices[0]) * vertices.size();
+			uint32 buffer_size = static_cast<uint32>(sizeof(vertices[0]) * vertices.size());
 
 			GPUBuffer staging_buffer;
 
@@ -57,13 +57,13 @@ namespace Fluxon {
 
 
 
-			Resources::CopyBuffer(vk_ctx, cmd_pool, staging_buffer.buffer, mVertexBuffer.buffer, buffer_size);
+			Resources::CopyBuffer(vk_ctx, cmd_pool, staging_buffer.buffer, mVertexBuffer.buffer, static_cast<VkDeviceSize>(buffer_size));
 
 			GPUBuffer::DestoryBuffer(vk_ctx->device, staging_buffer);
 		}
 		void Mesh::CreateIndexBuffer(const VulkanContext* vk_ctx, VkCommandPool cmd_pool, std::vector<uint16_t>& indices)
 		{
-			VkDeviceSize buffer_size = sizeof(indices[0]) * indices.size();
+			uint32 buffer_size = static_cast<uint32>(sizeof(indices[0]) * indices.size());
 			mIndicesCount = indices.size();
 
 			GPUBuffer staging_buffer;
@@ -81,7 +81,7 @@ namespace Fluxon {
 				VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
 				mIndexBuffer);
 
-			Resources::CopyBuffer(vk_ctx, cmd_pool, staging_buffer.buffer, mIndexBuffer.buffer, buffer_size);
+			Resources::CopyBuffer(vk_ctx, cmd_pool, staging_buffer.buffer, mIndexBuffer.buffer, static_cast<VkDeviceSize>(buffer_size));
 
 			GPUBuffer::DestoryBuffer(vk_ctx->device, staging_buffer);
 		}

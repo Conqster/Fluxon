@@ -7,9 +7,12 @@ namespace Fluxon {
 	namespace Platform {
 
 		//TODO (Conqster): Move window function into .cpp file 
-		 void FramebufferResizeCallback(GLFWwindow* window, int width, int height)
+		void FramebufferResizeCallback(GLFWwindow* window, int width, int height)
 		{
 			auto win = reinterpret_cast<Window*>(glfwGetWindowUserPointer(window));
+
+			win->windowMinimised = (width == 0 || height == 0);
+
 			win->width = width;
 			win->height = height;
 			win->windowResized = true;

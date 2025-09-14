@@ -111,7 +111,7 @@ namespace Fluxon {
 		skybox_render_obj.GPUModel.transform = glm::mat4(1.0f);
 
 		//skybox_render_obj.maskLayer &= ~ERenderMask::RM_ShadowCaster;  //<--- should not cast shadow 
-		skybox_render_obj.renderMask.RemoveBit(ERenderBits::ShadowCasterBit);
+		skybox_render_obj.renderMask.RemoveBit(ERenderBits::ShadowCaster);
 
 		for (auto& buckets : scene_ctx.renderPassBuckets)
 			buckets.renderObjects.push_back(skybox_render_obj);

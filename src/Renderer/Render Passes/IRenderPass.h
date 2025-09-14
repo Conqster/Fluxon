@@ -38,3 +38,21 @@ namespace Fluxon {
 		};
 	} //#Vulkan
 }//#Fluxon
+
+
+
+
+//only a single render paSS bu tconfiguratble using a struct parameter specifcation
+
+
+
+
+//Later have a system to create RenderPass from Image
+//Image 
+// What thsi means is that to be able to create RenderPass suitable for Image config
+// for runtime optimisation.
+// 
+// also spec
+// To be able to create RenderPass based on Specification, instend of having multiple 
+// heritanced class just pass a speci and it creates an render pass based on spec 
+//

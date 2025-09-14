@@ -97,6 +97,15 @@ namespace Fluxon {
 				throw std::runtime_error("Failed to create render pass!!!!!!");
 
 
+
+			DescriptorSpecification desc_spec{};
+			desc_spec.bTightFitDescriporPool = false;
+			desc_spec.bHasDescriptorPool = true;
+			mDescriptorSet.Create(vk_ctx, desc_spec);
+			mDescriptorSet.PushDescriptorSet("VoxelPass", 0, EDescriptorBuffering::Double);
+			mDescriptorSet.PushUBOBinding("camera_ubo", "VoxelPass", 0, static_cast<uint32>(sizeof(GPUStructures::CameraUBO)));
+			mDescriptorSet.PushUBOBinding("voxel_param_ubo", "VoxelPass", 1, static_cast<uint32>(sizeof(GPUStructures::VoxelParameterUBO)), EShaderStageBit::Vertex);
+
 			TextureSpecification tex_spec{};
 			tex_spec.width = mVoxelImageExtent.width;
 			tex_spec.height = mVoxelImageExtent.height;
@@ -112,9 +121,33 @@ namespace Fluxon {
 			image_transition.dstAccess = VK_ACCESS_SHADER_WRITE_BIT;
 			image_transition.subRangeLayerCount = mVoxelImageDepth;
 			tex_spec.explicitImageTransitionInfo = image_transition;
+			mDescriptorSet.PushStorageTextureBinding("voxel_occup_tex", "VoxelPass", 2, tex_spec, EShaderStageBit::Fragment);
+			mDescriptorSet.BakePendingWrites();
 
-			for (auto& voxel_occpancy_tex : mVoxelOccupancyTex)
-				voxel_occpancy_tex.Create(vk_ctx, cmd_pool, tex_spec);
+
+
+#pragma region Old
+
+			//TextureSpecification tex_spec{};
+			//tex_spec.width = mVoxelImageExtent.width;
+			//tex_spec.height = mVoxelImageExtent.height;
+			//tex_spec.depth = mVoxelImageDepth;
+			//tex_spec.usage = ETextureUsageBits::Storage;
+			//tex_spec.type = ETextureType::Texture2DArray;
+			////tex_spec.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+			//tex_spec.imageAspect = VK_IMAGE_ASPECT_COLOR_BIT;
+			//tex_spec.format = VK_FORMAT_R16_SFLOAT;
+			//Utils::LayoutTransitionInfo image_transition{};
+			//image_transition.newLayout = VK_IMAGE_LAYOUT_GENERAL;
+			//image_transition.dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+			//image_transition.dstAccess = VK_ACCESS_SHADER_WRITE_BIT;
+			//image_transition.subRangeLayerCount = mVoxelImageDepth;
+			//tex_spec.explicitImageTransitionInfo = image_transition;
+
+			//for (auto& voxel_occpancy_tex : mVoxelOccupancyTex)
+			//	voxel_occpancy_tex.Create(vk_ctx, cmd_pool, tex_spec);
+
+#pragma endregion
 
 
 
@@ -123,7 +156,7 @@ namespace Fluxon {
 			rt_spec.arrayLayers = 1;
 			rt_spec.format = depth_format;
 			rt_spec.targetMask = ERenderTargetBits::Write |
-				ERenderTargetBits::Sample;
+				ERenderTargetBits::Sample | ERenderTargetBits::ImGuiView;
 			rt_spec.explicitUsage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
 			rt_spec.imageAspect = VK_IMAGE_ASPECT_DEPTH_BIT;
 
@@ -135,167 +168,179 @@ namespace Fluxon {
 				throw std::runtime_error("Failed to create Shadow pass Framebuffer");
 			//if (!mFramebuffer.CreateDummy(vk_ctx, mRenderPass, mVoxelImageExtent, mVoxelImageDepth))
 
-			CreateGPUbuffers(vk_ctx);
+			mCamera.SetPosition(scene_cam->GetPosition());
+			
+#pragma region Old
+			//CreateGPUbuffers(vk_ctx);
 
-			if(!CreateDescriptorSetLayouts(vk_ctx))
-				throw std::runtime_error("Failed to create Descriptor set and UBO!!!!!");
+			//if (!CreateDescriptorSetLayouts(vk_ctx))
+			//	throw std::runtime_error("Failed to create Descriptor set and UBO!!!!!");
+
+#pragma endregion
+
+
+
+
+
+			UpdateCameraData(scene_cam);
+			UpdateVoxelParamData(voxel_data);
 
 
 			CreateGfxPipeline(vk_ctx);
 
 
-			mCamera.SetPosition(scene_cam->GetPosition());
 			//mCamera.SetType(ECameraType::Orthographic);
 			//mCamera.SetNearZ(0.0f);
 			//mCamera.SetFarZ(5.0f);
 			//mCamera.SetScale(6.4f);
 
-			UpdateCameraData(scene_cam);
-			UpdateVoxelParamData(voxel_data);
 		}
 
+#pragma region Old
+		//bool SceneVoxelPass::CreateDescriptorSetLayouts(const VulkanContext* vk_ctx)
+		//{
+		//	std::array<VkDescriptorSetLayoutBinding, 3> layout_bindings{};
+		//	layout_bindings[0].binding = 0;
+		//	layout_bindings[0].descriptorCount = 1;
+		//	layout_bindings[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+		//	layout_bindings[0].pImmutableSamplers = nullptr;
+		//	layout_bindings[0].stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
 
-		bool SceneVoxelPass::CreateDescriptorSetLayouts(const VulkanContext* vk_ctx)
-		{
-			std::array<VkDescriptorSetLayoutBinding, 3> layout_bindings{};
-			layout_bindings[0].binding = 0;
-			layout_bindings[0].descriptorCount = 1;
-			layout_bindings[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-			layout_bindings[0].pImmutableSamplers = nullptr;
-			layout_bindings[0].stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+		//	layout_bindings[1].binding = 1;
+		//	layout_bindings[1].descriptorCount = 1;
+		//	layout_bindings[1].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+		//	layout_bindings[1].pImmutableSamplers = nullptr;
+		//	layout_bindings[1].stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
 
-			layout_bindings[1].binding = 1;
-			layout_bindings[1].descriptorCount = 1;
-			layout_bindings[1].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-			layout_bindings[1].pImmutableSamplers = nullptr;
-			layout_bindings[1].stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+		//	layout_bindings[2].binding = 2;
+		//	layout_bindings[2].descriptorCount = 1;
+		//	layout_bindings[2].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+		//	layout_bindings[2].pImmutableSamplers = nullptr;
+		//	layout_bindings[2].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 
-			layout_bindings[2].binding = 2;
-			layout_bindings[2].descriptorCount = 1;
-			layout_bindings[2].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
-			layout_bindings[2].pImmutableSamplers = nullptr;
-			layout_bindings[2].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+		//	VkDescriptorSetLayoutCreateInfo layoutInfo{};
+		//	layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+		//	layoutInfo.bindingCount = static_cast<uint32_t>(layout_bindings.size());
+		//	layoutInfo.pBindings = layout_bindings.data();
 
-			VkDescriptorSetLayoutCreateInfo layoutInfo{};
-			layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-			layoutInfo.bindingCount = static_cast<uint32_t>(layout_bindings.size());
-			layoutInfo.pBindings = layout_bindings.data();
-
-			//mComputeDescSetSpec.set = 0;
-			if (vkCreateDescriptorSetLayout(vk_ctx->device, &layoutInfo, nullptr, &mDescriptorSetLayout) != VK_SUCCESS) {
-				throw std::runtime_error("failed to create compute descriptor set layout!");
-			}
-
-
-
-			//descriptor pool
-			VkDescriptorPoolSize ubo_pool_size{};
-			ubo_pool_size.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-			ubo_pool_size.descriptorCount = 2 * static_cast<uint32_t>(kMaxFramesInFlight);
-
-			VkDescriptorPoolSize image2darray_pool_size{};
-			image2darray_pool_size.type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
-			//2 * one SSBO for In Particle and second for Out Particle 
-			image2darray_pool_size.descriptorCount = 1 * static_cast<uint32_t>(kMaxFramesInFlight);
-
-			std::array<VkDescriptorPoolSize, 2> pool_sizes = { ubo_pool_size, image2darray_pool_size };
-			VkDescriptorPoolCreateInfo pool_create_info{};
-			pool_create_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-			pool_create_info.poolSizeCount = static_cast<uint32_t>(pool_sizes.size());
-			pool_create_info.pPoolSizes = pool_sizes.data();
-			pool_create_info.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
-			pool_create_info.maxSets = static_cast<uint32_t>(kMaxFramesInFlight);
-
-			if (vkCreateDescriptorPool(vk_ctx->device, &pool_create_info, nullptr, &mDescriptorPool) != VK_SUCCESS)
-				throw std::runtime_error("Failed to Create Descriptor Pool!!!!!!!");
-
-			std::vector<VkDescriptorSetLayout> layouts(kMaxFramesInFlight, mDescriptorSetLayout);
-			VkDescriptorSetAllocateInfo alloc_info{};
-			alloc_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-			alloc_info.descriptorPool = mDescriptorPool;
-			alloc_info.descriptorSetCount = static_cast<uint32_t>(kMaxFramesInFlight);
-			alloc_info.pSetLayouts = layouts.data();
-
-			if (vkAllocateDescriptorSets(vk_ctx->device, &alloc_info, mDescriptorSets.data()) != VK_SUCCESS)
-				throw std::runtime_error("Failed to allocate descriptor sets !!!!!!!");
+		//	//mComputeDescSetSpec.set = 0;
+		//	if (vkCreateDescriptorSetLayout(vk_ctx->device, &layoutInfo, nullptr, &mDescriptorSetLayout) != VK_SUCCESS) {
+		//		throw std::runtime_error("failed to create compute descriptor set layout!");
+		//	}
 
 
 
-			for (size_t i = 0; i < kMaxFramesInFlight; i++)
-			{
+		//	//descriptor pool
+		//	VkDescriptorPoolSize ubo_pool_size{};
+		//	ubo_pool_size.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+		//	ubo_pool_size.descriptorCount = 2 * static_cast<uint32_t>(kMaxFramesInFlight);
 
-				std::array<VkWriteDescriptorSet, 3> descriptorWrites{};
+		//	VkDescriptorPoolSize image2darray_pool_size{};
+		//	image2darray_pool_size.type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+		//	//2 * one SSBO for In Particle and second for Out Particle 
+		//	image2darray_pool_size.descriptorCount = 1 * static_cast<uint32_t>(kMaxFramesInFlight);
 
-				VkDescriptorBufferInfo cam_ubo_info{};
-				cam_ubo_info.buffer = mCameraBufferdata[i].buffer;
-				cam_ubo_info.offset = 0;
-				cam_ubo_info.range = mCameraBufferdata[i].size;
+		//	std::array<VkDescriptorPoolSize, 2> pool_sizes = { ubo_pool_size, image2darray_pool_size };
+		//	VkDescriptorPoolCreateInfo pool_create_info{};
+		//	pool_create_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+		//	pool_create_info.poolSizeCount = static_cast<uint32_t>(pool_sizes.size());
+		//	pool_create_info.pPoolSizes = pool_sizes.data();
+		//	pool_create_info.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
+		//	pool_create_info.maxSets = static_cast<uint32_t>(kMaxFramesInFlight);
 
-				descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-				descriptorWrites[0].dstSet = mDescriptorSets[i];
-				descriptorWrites[0].dstBinding = 0;
-				descriptorWrites[0].dstArrayElement = 0;
-				descriptorWrites[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-				descriptorWrites[0].descriptorCount = 1;
-				descriptorWrites[0].pBufferInfo = &cam_ubo_info;
+		//	if (vkCreateDescriptorPool(vk_ctx->device, &pool_create_info, nullptr, &mDescriptorPool) != VK_SUCCESS)
+		//		throw std::runtime_error("Failed to Create Descriptor Pool!!!!!!!");
 
-				VkDescriptorBufferInfo voxel_param_ubo_info{};
-				voxel_param_ubo_info.buffer = mVoxelParamBufferdata[i].buffer;
-				voxel_param_ubo_info.offset = 0;
-				voxel_param_ubo_info.range = mVoxelParamBufferdata[i].size;
+		//	std::vector<VkDescriptorSetLayout> layouts(kMaxFramesInFlight, mDescriptorSetLayout);
+		//	VkDescriptorSetAllocateInfo alloc_info{};
+		//	alloc_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+		//	alloc_info.descriptorPool = mDescriptorPool;
+		//	alloc_info.descriptorSetCount = static_cast<uint32_t>(kMaxFramesInFlight);
+		//	alloc_info.pSetLayouts = layouts.data();
 
-				descriptorWrites[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-				descriptorWrites[1].dstSet = mDescriptorSets[i];
-				descriptorWrites[1].dstBinding = 1;
-				descriptorWrites[1].dstArrayElement = 0;
-				descriptorWrites[1].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-				descriptorWrites[1].descriptorCount = 1;
-				descriptorWrites[1].pBufferInfo = &voxel_param_ubo_info;
-
-				VkDescriptorImageInfo voxel_occupancy_tex_info{};
-				voxel_occupancy_tex_info.sampler = mVoxelOccupancyTex[i].GetSampler();
-				voxel_occupancy_tex_info.imageView = mVoxelOccupancyTex[i].GetImageView();
-				voxel_occupancy_tex_info.imageLayout = mVoxelOccupancyTex[i].GetImageLayout();
-
-				
-
-				descriptorWrites[2].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-				descriptorWrites[2].dstSet = mDescriptorSets[i];
-				descriptorWrites[2].dstBinding = 2;
-				descriptorWrites[2].dstArrayElement = 0;
-				descriptorWrites[2].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;/// | VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
-				descriptorWrites[2].descriptorCount = 1;
-				descriptorWrites[2].pImageInfo = &voxel_occupancy_tex_info;
-
-				vkUpdateDescriptorSets(vk_ctx->device, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
-			}
+		//	if (vkAllocateDescriptorSets(vk_ctx->device, &alloc_info, mDescriptorSets.data()) != VK_SUCCESS)
+		//		throw std::runtime_error("Failed to allocate descriptor sets !!!!!!!");
 
 
-			return true;
-		}
 
-		bool SceneVoxelPass::CreateGPUbuffers(const VulkanContext* vk_ctx)
-		{
-			for (uint32_t i = 0; i < kMaxFramesInFlight; ++i)
-			{
-				GPUBuffer& camera_buff = mCameraBufferdata[i];
-				//create uniform buffer 
-				VkDeviceSize buffer_req_size = static_cast<VkDeviceSize>(sizeof(GPUStructures::CameraUBO));
-				GPUBuffer::CreateBuffer(vk_ctx, static_cast<VkDeviceSize>(buffer_req_size), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-					VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, camera_buff);
+		//	for (size_t i = 0; i < kMaxFramesInFlight; i++)
+		//	{
 
-				GPUBuffer::MapBufferMemory(vk_ctx->device, camera_buff);
+		//		std::array<VkWriteDescriptorSet, 3> descriptorWrites{};
 
-				GPUBuffer& voxel_param_buff = mVoxelParamBufferdata[i];
-				buffer_req_size = static_cast<VkDeviceSize>(sizeof(GPUStructures::VoxelParameterUBO));
+		//		VkDescriptorBufferInfo cam_ubo_info{};
+		//		cam_ubo_info.buffer = mCameraBufferdata[i].buffer;
+		//		cam_ubo_info.offset = 0;
+		//		cam_ubo_info.range = mCameraBufferdata[i].size;
 
-				GPUBuffer::CreateBuffer(vk_ctx, static_cast<VkDeviceSize>(buffer_req_size), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-					VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, voxel_param_buff);
+		//		descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		//		descriptorWrites[0].dstSet = mDescriptorSets[i];
+		//		descriptorWrites[0].dstBinding = 0;
+		//		descriptorWrites[0].dstArrayElement = 0;
+		//		descriptorWrites[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+		//		descriptorWrites[0].descriptorCount = 1;
+		//		descriptorWrites[0].pBufferInfo = &cam_ubo_info;
 
-				GPUBuffer::MapBufferMemory(vk_ctx->device, voxel_param_buff);
-			}
-			return true;
-		}
+		//		VkDescriptorBufferInfo voxel_param_ubo_info{};
+		//		voxel_param_ubo_info.buffer = mVoxelParamBufferdata[i].buffer;
+		//		voxel_param_ubo_info.offset = 0;
+		//		voxel_param_ubo_info.range = mVoxelParamBufferdata[i].size;
+
+		//		descriptorWrites[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		//		descriptorWrites[1].dstSet = mDescriptorSets[i];
+		//		descriptorWrites[1].dstBinding = 1;
+		//		descriptorWrites[1].dstArrayElement = 0;
+		//		descriptorWrites[1].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+		//		descriptorWrites[1].descriptorCount = 1;
+		//		descriptorWrites[1].pBufferInfo = &voxel_param_ubo_info;
+
+		//		VkDescriptorImageInfo voxel_occupancy_tex_info{};
+		//		voxel_occupancy_tex_info.sampler = mVoxelOccupancyTex[i].GetSampler();
+		//		voxel_occupancy_tex_info.imageView = mVoxelOccupancyTex[i].GetImageView();
+		//		voxel_occupancy_tex_info.imageLayout = mVoxelOccupancyTex[i].GetImageLayout();
+
+		//		
+
+		//		descriptorWrites[2].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		//		descriptorWrites[2].dstSet = mDescriptorSets[i];
+		//		descriptorWrites[2].dstBinding = 2;
+		//		descriptorWrites[2].dstArrayElement = 0;
+		//		descriptorWrites[2].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;/// | VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
+		//		descriptorWrites[2].descriptorCount = 1;
+		//		descriptorWrites[2].pImageInfo = &voxel_occupancy_tex_info;
+
+		//		vkUpdateDescriptorSets(vk_ctx->device, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
+		//	}
+
+
+		//	return true;
+		//}
+
+		//bool SceneVoxelPass::CreateGPUbuffers(const VulkanContext* vk_ctx)
+		//{
+		//	for (uint32_t i = 0; i < kMaxFramesInFlight; ++i)
+		//	{
+		//		GPUBuffer& camera_buff = mCameraBufferdata[i];
+		//		//create uniform buffer 
+		//		uint32 buffer_req_size = static_cast<uint32>(sizeof(GPUStructures::CameraUBO));
+		//		GPUBuffer::CreateBuffer(vk_ctx, buffer_req_size, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+		//			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, camera_buff);
+
+		//		GPUBuffer::MapBufferMemory(vk_ctx->device, camera_buff);
+
+		//		GPUBuffer& voxel_param_buff = mVoxelParamBufferdata[i];
+		//		buffer_req_size = static_cast<uint32>(sizeof(GPUStructures::VoxelParameterUBO));
+
+		//		GPUBuffer::CreateBuffer(vk_ctx, buffer_req_size, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+		//			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, voxel_param_buff);
+
+		//		GPUBuffer::MapBufferMemory(vk_ctx->device, voxel_param_buff);
+		//	}
+		//	return true;
+		//}
+#pragma endregion
+
+		
 
 
 		void SceneVoxelPass::CreateGfxPipeline(const VulkanContext* vk_ctx)
@@ -307,7 +352,8 @@ namespace Fluxon {
 			gfx_specification.renderPass = mRenderPass;
 
 			//add required descriptor set layout & push constant 
-			gfx_specification.descriptorSetLayouts = { mDescriptorSetLayout };
+			//gfx_specification.descriptorSetLayouts = { mDescriptorSetLayout };
+			gfx_specification.descriptorSetLayouts = { mDescriptorSet.GetSetLayoutHandle("VoxelPass") };
 
 			VkPushConstantRange push_constant_range{};
 			push_constant_range.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
@@ -391,8 +437,10 @@ namespace Fluxon {
 			mGfxPipeline.Bind(cmd_buff);
 
 			//Bind descriptor sets Light matrix 
-			auto& desc_set = mDescriptorSets[mFrameIndex];
-			mGfxPipeline.BindDescriptorSets(cmd_buff, &desc_set);
+			//auto& desc_set = mDescriptorSets[mFrameIndex];
+			//mGfxPipeline.BindDescriptorSets(cmd_buff, &desc_set);
+			std::vector<VkDescriptorSet> desc_set = { mDescriptorSet.GetHandle("VoxelPass") };
+			mGfxPipeline.BindDescriptorSets(cmd_buff, desc_set.data());
 		}
 
 
@@ -412,7 +460,6 @@ namespace Fluxon {
 			}
 
 
-			auto& buffer = mCameraBufferdata[mFrameIndex];
 			nearz = 0.1f;
 			farz = 100.0f;
 
@@ -431,6 +478,12 @@ namespace Fluxon {
 			data.view = mCamera.GetView();
 			data.projection = mCamera.GetOrthoProjection(1.0f);
 
+			mDescriptorSet.UpdateUBOBinding("camera_ubo", &data, mFrameIndex);
+
+
+			//auto& buffer = mCameraBufferdata[mFrameIndex];
+			//GPUBuffer::CopyToMappedMemory(buffer, &data, sizeof(data));
+
 
 			//data.view = glm::lookAt(cam.position, cam.position + cam.forward, cam.up);
 			//
@@ -440,15 +493,16 @@ namespace Fluxon {
 			//data.view = Camera::GetView(cam);
 			//data.projection = Camera::GetProjection(cam, 1920, 1080);
 
-			GPUBuffer::CopyToMappedMemory(buffer, &data, sizeof(data));
 
 			//buffer.DirectWriteToMappedMemory<GPUStructures::CameraUBO>(data);
 		}
 
 		void SceneVoxelPass::UpdateVoxelParamData(const GPUStructures::VoxelParameterUBO& data)
 		{
-			auto& buffer = mVoxelParamBufferdata[mFrameIndex];
-			GPUBuffer::CopyToMappedMemory(buffer, &data, sizeof(data));
+			mDescriptorSet.UpdateUBOBinding("voxel_param_ubo", &data, mFrameIndex);
+
+			//auto& buffer = mVoxelParamBufferdata[mFrameIndex];
+			//GPUBuffer::CopyToMappedMemory(buffer, &data, sizeof(data));
 
 			//buffer.DirectWriteToMappedMemory<GPUStructures::VoxelParameterUBO>(data);
 		}
@@ -460,28 +514,36 @@ namespace Fluxon {
 
 		void SceneVoxelPass::Cleanup(VulkanContext* ctx)
 		{
-			vkDestroyRenderPass(ctx->device, mRenderPass, nullptr);
+			mDescriptorSet.Destory();
+
+			if(mRenderPass != VK_NULL_HANDLE)
+				vkDestroyRenderPass(ctx->device, mRenderPass, nullptr);
 
 
 			mGfxPipeline.Cleanup(ctx);
 
-			for (auto& tex : mVoxelOccupancyTex)
-				tex.Destory(ctx->device);
+
+			RenderTarget::DestoryRenderTraget(ctx->device, mRenderTarget);
+
 			Framebuffer::DestroyFramebuffer(ctx->device, mFramebuffer);
 
-
-			for (auto& buffer : mCameraBufferdata)
-				GPUBuffer::DestoryBuffer(ctx->device, buffer);
-
-			for (auto& buffer : mVoxelParamBufferdata)
-				GPUBuffer::DestoryBuffer(ctx->device, buffer);
+			//for (auto& tex : mVoxelOccupancyTex)
+			//	tex.Destory(ctx->device);
+			//Framebuffer::DestroyFramebuffer(ctx->device, mFramebuffer);
 
 
+			//for (auto& buffer : mCameraBufferdata)
+			//	GPUBuffer::DestoryBuffer(ctx->device, buffer);
 
-			//DescriptorSetSpecification
-			vkDestroyDescriptorSetLayout(ctx->device, mDescriptorSetLayout, nullptr);
+			//for (auto& buffer : mVoxelParamBufferdata)
+			//	GPUBuffer::DestoryBuffer(ctx->device, buffer);
 
-			vkDestroyDescriptorPool(ctx->device, mDescriptorPool, nullptr);
+
+
+			////DescriptorSetSpecification
+			//vkDestroyDescriptorSetLayout(ctx->device, mDescriptorSetLayout, nullptr);
+
+			//vkDestroyDescriptorPool(ctx->device, mDescriptorPool, nullptr);
 		}
 
 

@@ -17,6 +17,7 @@ layout(set = 1, binding = 0) uniform Camera
 
 
 
+
 void main()
 {
 	vTexCoords = pos.xyz;

@@ -28,7 +28,7 @@ namespace Fluxon {
 			void CreateFrameBufferData(const VulkanContext* vk_ctx, LineFrameBuff& fb, uint32_t vertex_capacity);
 
 		public:
-			void Init(const VulkanContext* vk_ctx, VkRenderPass& global_forward_pass, VkDescriptorSetLayout& desc_set_with_cam_as_set1);
+			void Init(const VulkanContext* vk_ctx, const VkRenderPass& global_forward_pass, VkDescriptorSetLayout& desc_set_with_cam_as_set1);
 			
 			void BeginFrame(uint32_t frame_idx);
 

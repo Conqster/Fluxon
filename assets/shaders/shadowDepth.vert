@@ -13,6 +13,12 @@ layout(set = 0, binding = 0) uniform LightSpace
 }uLightSpace;
 
 
+layout(set = 0, binding = 1) uniform Move
+{
+	vec4 position;
+};
+
+
 
 layout(push_constant) uniform Model{
 	layout(offset = 0) mat4 transform;
@@ -28,6 +34,6 @@ out gl_PerVertex
 void main()
 {
 	//gl_Position = uLightSpace.matrix * uModel.transform * vec4(pos, 1.0f);
-	gl_Position = (uLightSpace.proj * uLightSpace.view *  uModel.transform * vec4(pos, 1.0f));
+	gl_Position = (uLightSpace.proj * uLightSpace.view *  uModel.transform * (vec4(pos, 1.0f) + position));
 	//gl_Position = vec4(0.0f, 0.0f, 0.5f, 1.0f);
 }

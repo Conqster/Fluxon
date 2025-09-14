@@ -14,16 +14,22 @@ namespace Fluxon {
 			render_target.targetMask = spec.targetMask;
 			render_target.arrayLayers = spec.arrayLayers;
 
+			render_target.explicitUsage = spec.explicitUsage;
+			render_target.imageAspect = spec.imageAspect;
+
 			VkImageUsageFlags usage = 0;
 			if (spec.targetMask.Contains(ERenderTargetBits::Write))
 				usage |= Utils::IsDepthFormat(spec.format) ? VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT : VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
-			if (spec.targetMask.Contains(ERenderTargetBits::Sample))
+
+			bool needs_sampler = (render_target.targetMask.Contains(ERenderTargetBits::Sample) || render_target.targetMask.Contains(ERenderTargetBits::ImGuiView));
+			if (needs_sampler)
 			{
 				usage |= VK_IMAGE_USAGE_SAMPLED_BIT;
 
 				//texture sampler for sampler
 				// 
 				render_target.sampler = Resources::CreateTextureSampler(vk_ctx, spec.bEnableSamplerAnisotropy, spec.samplerFilterMode, spec.samplerAddressMode, spec.samplerBorderColor);
+				render_target.targetMask |= ERenderTargetBits::Sample; //<-- incase flags bit does not exist
 			}
 
 			//EXPLICIT USAGE
@@ -59,26 +65,62 @@ namespace Fluxon {
 			transition_info.srcAccess = 0;
 			transition_info.dstAccess = Utils::IsDepthFormat(spec.format) ?
 				VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT :
-				VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+				VK_ACCESS_COLOR_ATTACHMENT_READ_BIT;// | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
 			transition_info.subRangeLayerCount = render_target.arrayLayers;
 			
 			Utils::TransitionImageLayout(vk_ctx, cmd_pool, render_target.image, render_target.format, transition_info);
 
 			if (spec.targetMask.Contains(ERenderTargetBits::ImGuiView))
 				render_target.imguiDescSet = ImGui_ImplVulkan_AddTexture(render_target.sampler, render_target.imageView,
-										VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+											VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
 
 			return true;
+		}
+
+		bool RenderTarget::OnResize(VulkanContext* vk_ctx, VkCommandPool cmd_pool, uint32 width, uint32 height)
+		{
+			if (width == extent.width && height == extent.height)
+				return false;
+
+			RenderTargetSpec spec{};
+			spec.extent = {width, height};
+			spec.format = format;
+			spec.targetMask = targetMask;
+			spec.arrayLayers = arrayLayers;
+
+			spec.explicitUsage = explicitUsage;
+			spec.imageAspect = imageAspect;
+
+			RenderTarget temp_rt;
+			if (CreateRenderTarget(vk_ctx, cmd_pool, temp_rt, spec))
+			{
+				RenderTarget::DestoryRenderTraget(vk_ctx->device, *this);
+				*this = temp_rt;
+				return true;
+			}
+			return false;
 		}
 
 		bool RenderTarget::MakeRenderTarget(Fluxon::Vulkan::VulkanContext* vk_ctx, RenderTarget& rt, RenderTargetFlag target_mask)
 		{
 
+
+			//need to fix this, if texture is not a sampler then usage is not a smapler
+			//then if this is the casr. 
+			//its bad to make imgui sample image,
+			//so a image data copy is required and transistion into 
+			//right layout and format 
+
+
+
+
 			//if required a sampler or imgui debug view  both requires a sampler
 			bool needs_sampler = (target_mask.Contains(ERenderTargetBits::Sample) || target_mask.Contains(ERenderTargetBits::ImGuiView));
 			//bool needs_sampler = (target_mask.Contains(ERenderTargetBits::Sample | ERenderTargetBits::ImGuiView));
 
-			bool sampler_missing = (rt.targetMask.Contains(ERenderTargetBits::Sample) || rt.sampler == VK_NULL_HANDLE);
+			bool sampler_missing = (!rt.targetMask.Contains(ERenderTargetBits::Sample) || rt.sampler == VK_NULL_HANDLE);
+
 			if (needs_sampler && sampler_missing)
 			{
 				//for render target (rt) having flag RTM::Sample but rt.sampler == VK_NULL_HANDLE <<-- mush be a bug in the system/creation
@@ -115,7 +157,7 @@ namespace Fluxon {
 
 
 
-		bool Framebuffer::Create(Fluxon::Vulkan::VulkanContext* ctx, VkRenderPass render_pass, Framebuffer& fbo, 
+		bool Framebuffer::Create(const Fluxon::Vulkan::VulkanContext* ctx, VkRenderPass render_pass, Framebuffer& fbo, 
 			VkExtent2D _extext, const std::vector<VkImageView>& view_attachments, uint32_t layers)
 		{
 			fbo.extent = _extext;
@@ -153,6 +195,24 @@ namespace Fluxon {
 
 			return true;
 		}
+
+
+		bool Framebuffer::OnResize(VulkanContext* vk_ctx, VkRenderPass render_pass, const std::vector<VkImageView>& view_attachments, uint32 width, uint32 height, uint32 layer)
+		{
+			if (width == extent.width && height == extent.height)
+				return false;
+
+
+			Framebuffer temp_fbo;
+			if(Create(vk_ctx, render_pass, temp_fbo, { width, height }, view_attachments, layer))
+			{
+				Framebuffer::DestroyFramebuffer(vk_ctx->device, *this);
+				*this = temp_fbo;
+				return true;
+			}
+			return false;
+		}
+
 
 	}//namespace Vulkan
 } //namespace Fluxon

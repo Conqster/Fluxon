@@ -41,7 +41,7 @@ namespace Fluxon {
 			std::vector<GPUStructures::Particle> mParticles;
 
 		public:
-			void Init(class VulkanContext* vk_ctx, VkCommandPool cmd_pool, VkRenderPass& forward_render_pass, VkDescriptorSetLayout& camera_desc_set_layout);
+			void Init(class VulkanContext* vk_ctx, VkCommandPool cmd_pool, const VkRenderPass& forward_render_pass, VkDescriptorSetLayout& camera_desc_set_layout);
 			void PreBeginFrameSync(uint32_t  curr_frame, double delta_time);
 			void Begin(VulkanContext* ctx, VkCommandBuffer compute_cmd_buff, uint32_t img_idx);
 			void Cleanup(class VulkanContext* ctx);
@@ -56,7 +56,7 @@ namespace Fluxon {
 		private:
 			bool CreateDescriptorSetLayouts(const VulkanContext* vk_ctx);
 
-			bool CreatePipeline(const VulkanContext* vk_ctx, VkRenderPass& forward_render_pass, VkDescriptorSetLayout& camera_desc_set_layout);
+			bool CreatePipeline(const VulkanContext* vk_ctx, const VkRenderPass& forward_render_pass, VkDescriptorSetLayout& camera_desc_set_layout);
 		};
 	} //#Vulkan
 }//#Fluxon

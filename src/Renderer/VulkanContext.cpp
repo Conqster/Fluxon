@@ -93,7 +93,7 @@ namespace Fluxon {
 			//TODO (Conqster): maybe later cache optimal device properties
 		}
 
-		VulkanContext VulkanContext::CreateVulkanContext(Platform::Window* window, const VulkanContextSpecification& ctx_spec, PFN_vkDebugUtilsMessengerCallbackEXT debug_callback)
+		VulkanContext VulkanContext::CreateVulkanContext(Platform::Window* window, const VulkanContextSpecification& ctx_spec)
 		{
 			//check validation layer is required and supported 
 			if (ctx_spec.bEnableValidationLayer && !Utils::CheckValidationLayerSupport(mValidationLayers))
@@ -103,10 +103,10 @@ namespace Fluxon {
 			vk_ctx.pMainPlatformWindow = window;
 			
 
-			vk_ctx.CreateVkInstance(window, ctx_spec, debug_callback);
+			vk_ctx.CreateVkInstance(window, ctx_spec, ctx_spec.debug_callback);
 
 			if (ctx_spec.bEnableValidationLayer)
-				vk_ctx.InitDebugMessenger(debug_callback);
+				vk_ctx.InitDebugMessenger(ctx_spec.debug_callback);
 
 			vk_ctx.CreateSurface(window);
 
@@ -115,6 +115,10 @@ namespace Fluxon {
 			vk_ctx.CreateLogicalDevice(ctx_spec);
 
 			vk_ctx.dummyDescSetLayout = Utils::CreateDummyDescriptorSetLayout(&vk_ctx);
+
+			if (ctx_spec.bCreateTransientCommandBuffer)
+				vk_ctx.CreateTrasientCommand();
+
 			return vk_ctx;
 		}
 
@@ -259,6 +263,25 @@ namespace Fluxon {
 			vkGetDeviceQueue(device, queue_indices.presentFamily.value(), 0, &presentQueue);
 		}
 
+		void VulkanContext::CreateTrasientCommand()
+		{
+			QueueFamilyIndices queue_family_indices = Utils::FindDeviceQueueFamilies(*this);
+			VkCommandPoolCreateInfo command_pool_create_info{};
+			command_pool_create_info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+			command_pool_create_info.flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT;
+			command_pool_create_info.queueFamilyIndex = queue_family_indices.graphicsAndComputeFamily.value();
+
+			FLUX_VK_ASSERT_SUCCESS(vkCreateCommandPool(device, &command_pool_create_info, nullptr, &transientCmdPool) != VK_SUCCESS, "Failed to create command pools!!!!");
+
+			transientCmdBuffer.Init(device, transientCmdPool);
+
+
+			VkFenceCreateInfo fence_create_info{};
+			fence_create_info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+			fence_create_info.flags = VK_FENCE_CREATE_SIGNALED_BIT;
+			FLUX_VK_ASSERT_SUCCESS(vkCreateFence(device, &fence_create_info, nullptr, &transientCmdFence) != VK_SUCCESS, "Failed to create fence");
+		}
+
 
 		void VulkanContext::DestroyVulkanContext(bool has_debugger)
 		{
@@ -268,6 +291,12 @@ namespace Fluxon {
 				if (func != nullptr)
 					func(instance, debugMessager, nullptr);
 			}
+
+			transientCmdBuffer.Destroy(device, transientCmdPool);
+			if(transientCmdPool != VK_NULL_HANDLE)
+				vkDestroyCommandPool(device, transientCmdPool, nullptr);
+			if(transientCmdFence != VK_NULL_HANDLE)
+			vkDestroyFence(device, transientCmdFence, nullptr);
 
 			if (dummyDescSetLayout != VK_NULL_HANDLE)
 				vkDestroyDescriptorSetLayout(device, dummyDescSetLayout, nullptr);

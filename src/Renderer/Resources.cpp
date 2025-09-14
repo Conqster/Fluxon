@@ -86,6 +86,119 @@ namespace Fluxon {
 
 
 				vkBindImageMemory(vk_ctx->device, image, image_memory, 0);
+
+
+				FLUX_DEBUG_LOG_INFO("Create Image: ",
+					"\n\t GPU ID: ", image, ", Address: ", &image,
+					"\n\t size; width: ", width, ", height: ", height,
+					"\n\t format: ", Utils::VulkanVkFormatToChar(format));
+			}
+
+			void CreateImage2DFromFile(const VulkanContext* vk_ctx, VkCommandPool cmd_pool, const char* file_path, VkFormat format, VkImage& out_image, 
+				VkDeviceMemory& out_image_memory, uint32& out_width, uint32& out_height, VkImageLayout& out_image_layout, bool enable_anisotropy)
+			{
+				int tex_channels;
+
+				int required_channels = static_cast<int>(STBI_rgb_alpha);
+				stbi_uc* pixels = stbi_load(file_path, (int32*)&out_width, (int32*)&out_height, &tex_channels, required_channels);
+				uint32 image_size = out_width * out_height * static_cast<uint32>(required_channels);
+
+				if (!pixels)
+				{
+					printf("path: %s", file_path);
+					throw std::runtime_error("Failed to load texture image !!!!!!");
+				}
+
+				GPUBuffer staging_buffer;
+
+				GPUBuffer::CreateBuffer(vk_ctx, image_size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+					VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+					staging_buffer);
+
+				GPUBuffer::FillBufferWithData(vk_ctx->device, staging_buffer, pixels);
+
+				stbi_image_free(pixels);
+
+				CreateImage2D(vk_ctx, out_width, out_height,
+					format, VK_IMAGE_TILING_OPTIMAL,
+					VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+					VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+					out_image, out_image_memory);
+
+				Utils::TransitionImageLayout(vk_ctx, cmd_pool, out_image, format, Utils::kImageUndefinedToDstOptimal);
+
+				CopyBufferToImage(vk_ctx, cmd_pool, staging_buffer.buffer, out_image, out_width, out_height);
+
+				auto& image_transition = Utils::kImageDstOptimalToShaderOptimalRead;
+				Utils::TransitionImageLayout(vk_ctx, cmd_pool, out_image, format, image_transition);
+				out_image_layout = image_transition.newLayout;
+
+				GPUBuffer::DestoryBuffer(vk_ctx->device, staging_buffer);
+			}
+
+			void CreateImageCubeFromFile(const VulkanContext* vk_ctx, VkCommandPool cmd_pool, std::vector<const char*> file_paths, VkFormat format, VkImage& out_image,
+				VkDeviceMemory& out_image_memory, uint32& out_width, uint32& out_height, VkImageLayout& out_image_layout, bool enable_anisotropy)
+			{
+				FLUX_DEBUG_ASSERT_CRITICAL(file_paths.size() == 6, "faces file path does not met criteria");
+
+				int tex_channels;
+				const int required_channels = static_cast<int>(STBI_rgb_alpha);
+				//face pixels 
+				//combined image pixel
+				stbi_uc* first_face_pixel = stbi_load(file_paths[0], (int32*)&out_width, (int32*)&out_height, &tex_channels, required_channels);
+				if (!first_face_pixel)
+					throw std::runtime_error("Failed to load texture image !!!!!!");
+
+				uint32_t per_face_size = out_width * out_height * static_cast<uint32_t>(required_channels);
+				uint32_t offset_of_pixels = 0; // VkDeviceSize total_image_face_size = 0; {offset_of_pixels == total_image_face_size}
+				std::vector<stbi_uc> pixels(per_face_size * file_paths.size());
+
+				memcpy(pixels.data() + offset_of_pixels, first_face_pixel, per_face_size);
+				stbi_image_free(first_face_pixel);
+				offset_of_pixels += per_face_size;
+
+				for (size_t i = 1; i < file_paths.size(); i++)
+				{
+					stbi_uc* face_pixels = stbi_load(file_paths[i], (int32*)&out_width, (int32*)&out_height, &tex_channels, required_channels);
+
+					if (!face_pixels)
+						throw std::runtime_error("Failed to load texture image !!!!!!");
+
+					memcpy(pixels.data() + offset_of_pixels, face_pixels, per_face_size);
+					stbi_image_free(face_pixels);
+					offset_of_pixels += per_face_size;
+				}
+
+				GPUBuffer staging_buffer;
+
+				//size_t offset_of_pixels = 0; // VkDeviceSize total_image_face_size = 0; {offset_of_pixels == total_image_face_size}
+				GPUBuffer::CreateBuffer(vk_ctx, static_cast<VkDeviceSize>(offset_of_pixels), VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+					VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+					staging_buffer);
+
+				//fill staging buffer with pixels data
+				GPUBuffer::FillBufferWithData(vk_ctx->device, staging_buffer, pixels.data());
+				//stbi_image_free(pixels_data);
+
+				CreateImage2D_4_CUBE(vk_ctx, out_width, out_height, format, VK_IMAGE_TILING_OPTIMAL,
+					VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+					VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, out_image, out_image_memory);
+
+				Utils::LayoutTransitionInfo transition_info = Utils::kImageUndefinedToDstOptimal;
+				transition_info.subRangeLayerCount = static_cast<uint32_t>(file_paths.size());
+
+				Utils::TransitionImageLayout(vk_ctx, cmd_pool, out_image, format, transition_info);
+
+
+				CopyBufferToMultiImages(vk_ctx, cmd_pool, staging_buffer.buffer, out_image, out_width, out_height, per_face_size, file_paths.size());
+
+
+				transition_info = Utils::kImageDstOptimalToShaderOptimalRead;
+				transition_info.subRangeLayerCount = static_cast<uint32_t>(file_paths.size());
+				Utils::TransitionImageLayout(vk_ctx, cmd_pool, out_image, format, transition_info);
+				out_image_layout = transition_info.newLayout;
+
+				GPUBuffer::DestoryBuffer(vk_ctx->device, staging_buffer);
 			}
 
 
@@ -212,134 +325,42 @@ namespace Fluxon {
 				VkSampler temp_sampler;
 				if (vkCreateSampler(vk_ctx->device, &sampler_create_info, nullptr, &temp_sampler) != VK_SUCCESS)
 					throw std::runtime_error("Failed to Create Texture Sampler!!!!!!!");
+
+
+				//FLUX_DEBUG_LOG_INFO("Created a Sampler: ",
+				//	"\n\t gpu id: ", temp_sampler, ", cpu address: ", &temp_sampler,
+				//	"\n\t filter mode: ", Utils::VulkanVkFilterToChar(filter_mode));
+
 				return temp_sampler;
 			}
 
-			void CreateImageSamplerTexture(const VulkanContext* vk_ctx, VkCommandPool cmd_pool, const char* file_path, VkFormat format, ImageSampler& image_sampler, bool enable_anisotropy) {
-				int tex_width;
-				int tex_height;
-				int tex_channels;
+			void CreateImageSamplerTexture(const VulkanContext* vk_ctx, VkCommandPool cmd_pool, const char* file_path, VkFormat format, ImageSampler& out_image_sampler, bool enable_anisotropy) {
 
-				int required_channels = static_cast<int>(STBI_rgb_alpha);
-				stbi_uc* pixels = stbi_load(file_path, &tex_width, &tex_height, &tex_channels, required_channels);
-				VkDeviceSize image_size = static_cast<VkDeviceSize>(tex_width) *
-					static_cast<VkDeviceSize>(tex_height) *
-					static_cast<VkDeviceSize>(required_channels);
+				VkImageLayout image_layout;
+				CreateImageSamplerTexture(vk_ctx, cmd_pool, file_path, format, out_image_sampler, image_layout, enable_anisotropy);
+			}
 
-				if (!pixels)
-				{
-					printf("path: %s", file_path);
-					throw std::runtime_error("Failed to load texture image !!!!!!");
-				}
+			void CreateImageSamplerTexture(const VulkanContext* vk_ctx, VkCommandPool cmd_pool, const char* file_path, VkFormat format, ImageSampler& out_image_sampler, VkImageLayout& out_image_layout, bool enable_anisotropy)
+			{
+				uint32 tex_width;
+				uint32 tex_height;
 
-				GPUBuffer staging_buffer;
-
-				GPUBuffer::CreateBuffer(vk_ctx, image_size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-					VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-					staging_buffer);
-
-				GPUBuffer::FillBufferWithData(vk_ctx->device, staging_buffer, pixels);
-
-				stbi_image_free(pixels);
-
-				CreateImage2D(vk_ctx, static_cast<uint32_t>(tex_width), static_cast<uint32_t>(tex_height),
-					format, VK_IMAGE_TILING_OPTIMAL,
-					VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
-					VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-					image_sampler.image, image_sampler.memory);
-
-				Utils::TransitionImageLayout(vk_ctx, cmd_pool,
-					image_sampler.image, format,
-					Utils::kImageUndefinedToDstOptimal);
-
-				CopyBufferToImage(vk_ctx, cmd_pool, staging_buffer.buffer,
-					image_sampler.image,
-					static_cast<uint32_t>(tex_width),
-					static_cast<uint32_t>(tex_height));
-
-				Utils::TransitionImageLayout(vk_ctx, cmd_pool,
-					image_sampler.image, format,
-					Utils::kImageDstOptimalToShaderOptimalRead);
-
-				GPUBuffer::DestoryBuffer(vk_ctx->device, staging_buffer);
+				CreateImage2DFromFile(vk_ctx, cmd_pool, file_path, format, out_image_sampler.image, out_image_sampler.memory, tex_width, tex_height, out_image_layout, enable_anisotropy);
 
 				//image view for sampler
-				image_sampler.imageView = CreateImageView2D(vk_ctx->device, image_sampler.image, format, VK_IMAGE_ASPECT_COLOR_BIT);
+				out_image_sampler.imageView = CreateImageView2D(vk_ctx->device, out_image_sampler.image, format, VK_IMAGE_ASPECT_COLOR_BIT);
 
 				//texture sampler for sampler
-				image_sampler.sampler = CreateTextureSampler(vk_ctx, enable_anisotropy);
+				out_image_sampler.sampler = CreateTextureSampler(vk_ctx, enable_anisotropy);
 			}
 
 			void CreateImageSamplerTextureCube(const VulkanContext* vk_ctx, VkCommandPool cmd_pool, std::vector<const char*> file_paths, VkFormat format, ImageSampler& image_sampler, bool enable_anisotropy)
 			{
-				int tex_width;
-				int tex_height;
-				int tex_channels;
+				uint32 tex_width;
+				uint32 tex_height;
 
-				const int required_channels = static_cast<int>(STBI_rgb_alpha);
-				//face pixels 
-				//combined image pixel
-				stbi_uc* first_face_pixel = stbi_load(file_paths[0], &tex_width, &tex_height, &tex_channels, required_channels);
-				if (!first_face_pixel)
-					throw std::runtime_error("Failed to load texture image !!!!!!");
-
-				uint32_t per_face_size = static_cast<uint32_t>(tex_width * tex_height * required_channels);
-				uint32_t offset_of_pixels = 0; // VkDeviceSize total_image_face_size = 0; {offset_of_pixels == total_image_face_size}
-				std::vector<stbi_uc> pixels(per_face_size * file_paths.size());
-
-				memcpy(pixels.data() + offset_of_pixels, first_face_pixel, per_face_size);
-				stbi_image_free(first_face_pixel);
-				offset_of_pixels += per_face_size;
-
-				for (size_t i = 1; i < file_paths.size(); i++)
-				{
-					stbi_uc* face_pixels = stbi_load(file_paths[i], &tex_width, &tex_height, &tex_channels, required_channels);
-
-					if (!face_pixels)
-						throw std::runtime_error("Failed to load texture image !!!!!!");
-
-					memcpy(pixels.data() + offset_of_pixels, face_pixels, per_face_size);
-					stbi_image_free(face_pixels);
-					offset_of_pixels += per_face_size;
-				}
-
-				GPUBuffer staging_buffer;
-
-				//size_t offset_of_pixels = 0; // VkDeviceSize total_image_face_size = 0; {offset_of_pixels == total_image_face_size}
-				GPUBuffer::CreateBuffer(vk_ctx, static_cast<VkDeviceSize>(offset_of_pixels), VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-					VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-					staging_buffer);
-
-				//fill staging buffer with pixels data
-				GPUBuffer::FillBufferWithData(vk_ctx->device, staging_buffer, pixels.data());
-				//stbi_image_free(pixels_data);
-
-				CreateImage2D_4_CUBE(vk_ctx, static_cast<uint32_t>(tex_width), static_cast<uint32_t>(tex_height),
-					format, VK_IMAGE_TILING_OPTIMAL,
-					VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
-					VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-					image_sampler.image, image_sampler.memory);
-
-				Utils::LayoutTransitionInfo transition_info = Utils::kImageUndefinedToDstOptimal;
-				transition_info.subRangeLayerCount = static_cast<uint32_t>(file_paths.size());
-
-				Utils::TransitionImageLayout(vk_ctx, cmd_pool,
-					image_sampler.image, format,
-					transition_info);
-
-
-				CopyBufferToMultiImages(vk_ctx, cmd_pool, staging_buffer.buffer,
-					image_sampler.image, static_cast<uint32_t>(tex_width), static_cast<uint32_t>(tex_height),
-					per_face_size, file_paths.size());
-
-
-				transition_info = Utils::kImageDstOptimalToShaderOptimalRead;
-				transition_info.subRangeLayerCount = static_cast<uint32_t>(file_paths.size());
-				Utils::TransitionImageLayout(vk_ctx, cmd_pool,
-					image_sampler.image, format,
-					transition_info);
-
-				GPUBuffer::DestoryBuffer(vk_ctx->device, staging_buffer);
+				VkImageLayout image_layout;
+				CreateImageCubeFromFile(vk_ctx, cmd_pool, file_paths, format, image_sampler.image, image_sampler.memory, tex_width, tex_height, image_layout, enable_anisotropy);
 
 				//create image view for sampler and sampler
 				image_sampler.imageView = CreateImageViewCube(vk_ctx->device, image_sampler.image, format, VK_IMAGE_ASPECT_COLOR_BIT);

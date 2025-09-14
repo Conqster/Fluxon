@@ -18,10 +18,18 @@ namespace Fluxon {
 					//available_format.colorSpace == VK_COLOR_SPACE_HDR10_ST2084_EXT)
 					return available_format;
 
+			
+			//for (const auto& available_format : available_formats)
+			//		if (available_format.format == VK_FORMAT_B8G8R8A8_UNORM &&
+			//			available_format.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR)
+
 			return available_formats[0];
 		}
 
-		static VkPresentModeKHR ChooseSwapPresentMode(const std::vector<VkPresentModeKHR>& available_present_modes) {
+		static VkPresentModeKHR ChooseSwapPresentMode(const std::vector<VkPresentModeKHR>& available_present_modes, bool vsync) {
+
+			if(vsync)
+				return VK_PRESENT_MODE_FIFO_KHR;
 
 			for (const auto& available_present_mode : available_present_modes)
 				if (available_present_mode == VK_PRESENT_MODE_MAILBOX_KHR)
@@ -50,86 +58,150 @@ namespace Fluxon {
 			}
 		}
 
-		Swapchain::Swapchain(VulkanContext* vk_ctx, const Platform::Window& window, VkCommandPool command_pool, VkRenderPass render_pass) : mVulkanContext(vk_ctx)
+		Swapchain::Swapchain(VulkanContext* vk_ctx, const Platform::Window& window) : mVulkanContextRef(vk_ctx)
 		{
-			CreateSwapchain(vk_ctx, window);
-
-			std::vector<VkImage> temp_swapchain_images = CreateImages();
-			std::vector<VkImageView> temp_swapchain_image_views = CreateImageViews((uint32_t)temp_swapchain_images.size(), temp_swapchain_images);
-
-			CreateDepthResources(command_pool);
-
-			std::vector<VkFramebuffer> temp_swapchain_framebuffers = CreateFramebuffers(temp_swapchain_image_views, render_pass);
-
-			UnifySwapchainImageResources(temp_swapchain_images, temp_swapchain_image_views, temp_swapchain_framebuffers);
-
+			Init(vk_ctx, window);
 		}
 
-		//Swapchain::Swapchain(const Vulkan2::VulkanContext* vk_render_ctx, const Platform::Window& window, VkCommandPool command_pool, VkRenderPass render_pass)
-		//{
+		bool Swapchain::Init(VulkanContext* vk_ctx, const Platform::Window& window)
+		{
 
-		//	mDevice = new Device();
-		//	mDevice->instance = vk_render_ctx->instance;
-		//	mDevice->physicalDevice = vk_render_ctx->physicalDevice;
-		//	mDevice->device = vk_render_ctx->device;
-		//	mDevice->surface = vk_render_ctx->surface;
-		//	mDevice->graphicsQueue = vk_render_ctx->graphicsQueue;
-		//	mDevice->presentQueue = vk_render_ctx->presentQueue;
-		//	mDevice->queueFamilyIndices = vk_render_ctx->queueFamilyIndices;
-		//	mDevice->debugMessager = vk_render_ctx->debugMessager;
+			mVulkanContextRef = vk_ctx;
+			bool success = CreateSwapchain(vk_ctx, window);
 
-		//	CreateSwapchain(mDevice, window);
+			std::vector<VkImage> swapchain_vkImage;
+			success |= GetSwapchainVkImagesKHR(vk_ctx->device, UINT32_MAX, swapchain_vkImage);
 
-		//	std::vector<VkImage> temp_swapchain_images = CreateImages();
-		//	std::vector<VkImageView> temp_swapchain_image_views = CreateImageViews((uint32_t)temp_swapchain_images.size(), temp_swapchain_images);
+			success |= CreateSwapchainImageResources(vk_ctx->device, swapchain_vkImage, mImages);
 
-		//	CreateDepthResources(command_pool);
+			return success;
+		}
 
-		//	std::vector<VkFramebuffer> temp_swapchain_framebuffers = CreateFramebuffers(temp_swapchain_image_views, render_pass);
-
-		//	UnifySwapchainImageResources(temp_swapchain_images, temp_swapchain_image_views, temp_swapchain_framebuffers);
-		//}
 
 		Swapchain::~Swapchain()
 		{
 			//TODO (Conqster): having issue where when a swapchain is create & destroy immediately
-			Cleanup();
+			//Cleanup(mVulkanContextRef);
 		}
 
 
 
-		void Swapchain::Cleanup()
+		void Swapchain::Cleanup(const VulkanContext* vk_ctx)
 		{
-			if (!mVulkanContext)
+			if (!vk_ctx)
 			{
-				printf("Probably managed by unique system!!!!!! BAD BAD\n");
+				FLUX_DEBUG_LOG_WARNING("Swap chain clean not null Vulkan Context!!");
 				return;
 			}
-			//depth resources
-			vkDestroyImage(mVulkanContext->device, mDepth.image, nullptr);
-			vkFreeMemory(mVulkanContext->device, mDepth.memory, nullptr);
-			vkDestroyImageView(mVulkanContext->device, mDepth.imageView, nullptr);
 
-			//images
-			for (auto& [img, img_view, framebuffer, render_complete] : mImages)
+
+			if(vk_ctx->device !=  VK_NULL_HANDLE)
 			{
-				vkDestroyFramebuffer(mVulkanContext->device, framebuffer, nullptr);
-				vkDestroyImageView(mVulkanContext->device, img_view, nullptr);
+				//images
+				for (auto& [img, img_view, render_complete] : mImages)
+				{
+					//vkDestroyFramebuffer(mVulkanContext->device, framebuffer, nullptr);
+					vkDestroyImageView(vk_ctx->device, img_view, nullptr);
 
-				vkDestroySemaphore(mVulkanContext->device, render_complete, nullptr);
+					vkDestroySemaphore(vk_ctx->device, render_complete, nullptr);
+				}
+				//mImages.clear();
+
+				//swap chain vulkan handle
+				vkDestroySwapchainKHR(vk_ctx->device, mSwapchain, nullptr);
 			}
-
-			//swap chain vulkan handle
-			vkDestroySwapchainKHR(mVulkanContext->device, mSwapchain, nullptr);
-			mVulkanContext = nullptr;
 		}
 
-		void Swapchain::CreateSwapchain(const VulkanContext* vk_ctx, const Platform::Window& window)
+		uint32 Swapchain::AcquireNextImageIdx(VulkanContext* vk_ctx, VkSemaphore frame_img_avail_semaphore)
+		{
+			VkResult result = vkAcquireNextImageKHR(
+				vk_ctx->device, mSwapchain, UINT64_MAX,
+				frame_img_avail_semaphore, VK_NULL_HANDLE,
+				&mAcquiredImageIdx);
+
+			CheckVkResultImageOutOfDate(result, vk_ctx, "Acquire");
+
+			return mAcquiredImageIdx;
+		}
+
+		SwapchainImage& Swapchain::AcquireNextImage(VulkanContext* vk_ctx, VkSemaphore frame_img_avail_semaphore)
+		{
+			return mImages[AcquireNextImageIdx(vk_ctx, frame_img_avail_semaphore)];
+		}
+
+		void Swapchain::Present(VulkanContext* vk_ctx)
+		{
+			//Present
+			VkPresentInfoKHR present_info{};
+			present_info.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+			present_info.waitSemaphoreCount = 1;
+			present_info.pWaitSemaphores = &mImages[mAcquiredImageIdx].renderComplete;//&render_complete_semaphore;
+			present_info.swapchainCount = 1;
+			present_info.pSwapchains = &mSwapchain;
+			present_info.pImageIndices = &mAcquiredImageIdx;
+			present_info.pResults = nullptr;
+
+			VkResult result = vkQueuePresentKHR(vk_ctx->presentQueue, &present_info);
+
+			CheckVkResultImageOutOfDate(result, vk_ctx, "Present");
+			//if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || vk_ctx->pMainPlatformWindow->windowResized)
+			//{
+			//	std::cout << "\033[1;31m [DRAW FRAME]\033[0m: " << "Need to Resize image acquire, for Presentation" << std::endl;
+			//	vk_ctx->pMainPlatformWindow->windowResized = false;
+			//	OnResize(vk_ctx, cmd_pool);
+			//}
+			//else if (result != VK_SUCCESS)
+			//	std::cout << "\033[1;31m [DRAW FRAME]\033[0m: " << "Failed to Present Image" << std::endl;
+		}
+
+		void Swapchain::OnResize(VulkanContext* vk_ctx)
+		{
+			int width = 0;
+			int height = 0;
+
+
+			glfwGetFramebufferSize(vk_ctx->pMainPlatformWindow->glfwWindowHandle, &width, &height);
+			while (width == 0 || height == 0)
+			{
+				glfwGetFramebufferSize(vk_ctx->pMainPlatformWindow->glfwWindowHandle, &width, &height);
+				glfwWaitEvents();
+			}
+			//if (vk_ctx->pMainPlatformWindow->IsWindowMinimised())
+			//	return;
+
+
+			if(mExtent.width != static_cast<uint32>(width) || mExtent.height != static_cast<uint32>(height))
+			{
+				//vkDeviceWaitIdle(vk_ctx->device);
+
+				//no need to clean at this time when new swapchain as been created and old 
+				//is destroied it cleans up old image & imge views 
+				//Cleanup(vk_ctx);
+				//TODO(Conqster): Need to fix REsizing
+
+				mOldSwapchain = mSwapchain;
+				bool success = CreateSwapchain(vk_ctx, *vk_ctx->pMainPlatformWindow);
+
+				//no need  for heavy init 
+				//Init(vk_ctx, *vk_ctx->pMainPlatformWindow);
+				std::vector<VkImage> swapchain_vkImage;
+				if (GetSwapchainVkImagesKHR(vk_ctx->device, static_cast<uint32>(mImages.size()), swapchain_vkImage))
+					UpdateSwapchainImageResources(vk_ctx->device, swapchain_vkImage, mImages);
+
+				//success |= CreateSwapchainImages(vk_ctx->device, static_cast<uint32>(mImages.size()));
+
+				//when swapchin is reconstructed mExtend would have been updated
+				for (auto& on_resize : mRegisteryResize)
+					on_resize(mExtent.width, mExtent.height);
+			}
+		}
+
+		bool Swapchain::CreateSwapchain(const VulkanContext* vk_ctx, const Platform::Window& window)
 		{
 			SwapchainSupportDetails swap_chain_support = Utils::QuerySwapchainSupport(vk_ctx->physicalDevice, vk_ctx->surface);
 
 			VkSurfaceFormatKHR surface_format = ChooseSwapSurfaceFormat(swap_chain_support.formats);
-			VkPresentModeKHR present_mode = ChooseSwapPresentMode(swap_chain_support.presentModes);
+			VkPresentModeKHR present_mode = ChooseSwapPresentMode(swap_chain_support.presentModes, false);
 			VkExtent2D extent = ChooseSwapExtent(window.glfwWindowHandle, swap_chain_support.capabilities);
 
 			// +1 
@@ -178,125 +250,105 @@ namespace Fluxon {
 			swapchain_create_info.presentMode = present_mode;
 			swapchain_create_info.clipped = VK_TRUE;
 
-			swapchain_create_info.oldSwapchain = VK_NULL_HANDLE;
+			swapchain_create_info.oldSwapchain = mOldSwapchain;
 
 
-			if (vkCreateSwapchainKHR(vk_ctx->device, &swapchain_create_info, nullptr, &mSwapchain) != VK_SUCCESS)
-				throw std::runtime_error("Failed to create swap chain!!!!");
+			bool success = vkCreateSwapchainKHR(vk_ctx->device, &swapchain_create_info, nullptr, &mSwapchain) == VK_SUCCESS;
+
+			FLUX_DEBUG_ASSERT(success, "Failed to create swap chain!!!!");
+
+			if(mOldSwapchain != VK_NULL_HANDLE && success)
+				vkDestroySwapchainKHR(vk_ctx->device, mOldSwapchain, nullptr);
 
 			//utilities
 			mImageFormat = surface_format.format;
 			mExtent = extent;
+
+			return success;
 		}
 
 
-		std::vector<VkImage> Swapchain::CreateImages()
+
+
+
+		bool Swapchain::GetSwapchainVkImagesKHR(VkDevice vk_ctx_device, uint32 requested_counts, std::vector<VkImage>& out_swapchain_vkimages)
 		{
-			uint32_t image_count = 0;
-			vkGetSwapchainImagesKHR(mVulkanContext->device, mSwapchain, &image_count, nullptr);
-			std::vector<VkImage> temp_swapchain_images(image_count);
-			vkGetSwapchainImagesKHR(mVulkanContext->device, mSwapchain, &image_count, temp_swapchain_images.data());
+			bool success = true;
 
 
-			return temp_swapchain_images;
+			uint32 image_count = requested_counts;
+			if(requested_counts == 0 || requested_counts == UINT32_MAX) //preventing if user pass requested_counts as -1
+				success = (vkGetSwapchainImagesKHR(vk_ctx_device, mSwapchain, &image_count, nullptr) == VK_SUCCESS);
+
+			FLUX_DEBUG_ASSERT(success, " Requested count: ", requested_counts, ", if invalid & and failed get GPU supported swap chain image count.");
+			if (!success)
+				return false;
+
+			out_swapchain_vkimages.resize(image_count);
+			success = (vkGetSwapchainImagesKHR(vk_ctx_device, mSwapchain, &image_count, out_swapchain_vkimages.data()) == VK_SUCCESS);
+			FLUX_DEBUG_ASSERT(success, "Failed to get swap chain KHR images!!!!");
+			if (!success)
+				return false;
+
+			return true;
 		}
-		std::vector<VkImageView> Swapchain::CreateImageViews(uint32_t counts, std::vector<VkImage> images)
+
+
+		bool Swapchain::CreateSwapchainImageResources(VkDevice vk_ctx_device, std::vector<VkImage>& images, std::vector<SwapchainImage>& out_swapchain_images)
 		{
-			std::vector<VkImageView> temp_swapchain_img_views(counts);
-
-			for (size_t i = 0; i < temp_swapchain_img_views.size(); i++)
-				temp_swapchain_img_views[i] = Resources::CreateImageView2D(mVulkanContext->device, images[i], mImageFormat, VK_IMAGE_ASPECT_COLOR_BIT);
-
-			return temp_swapchain_img_views;
-		}
-
-		//utility
-		static VkFormat  FindDepthFormat(const VkPhysicalDevice& physical_device) {
-			return Utils::FindSupportedFormat(
-				physical_device,
-				{ VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT }, //<<-- CANDIDATES FORMAT FOR DEPTH TESTING
-				VK_IMAGE_TILING_OPTIMAL,
-				VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT
-			);
-		}
-
-		void Swapchain::CreateDepthResources(VkCommandPool command_pool)
-		{
-			VkFormat depth_format = FindDepthFormat(mVulkanContext->physicalDevice);
-
-
-			/////////////////////////////////
-			// when have a vk Resources tool file /class 
-			// this function could be added
-			/////////////////////////////////
-			Resources::CreateImage2D(mVulkanContext, mExtent.width, mExtent.height, depth_format,
-				VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
-				VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, mDepth.image, mDepth.memory);
-
-			mDepth.imageView = Resources::CreateImageView2D(mVulkanContext->device, mDepth.image, depth_format, VK_IMAGE_ASPECT_DEPTH_BIT);
-
-
-			//THE TRANSITION DONT NEED TO BE EXPLICITY 
-			//Utils::TransitionImageLayout(mVulkanContext, command_pool, mDepth.image, depth_format, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
-			Utils::TransitionImageLayout(mVulkanContext, command_pool, mDepth.image, depth_format, Utils::kImageUndefinedToDepthStencilOptimal);
-		}
-
-
-		std::vector<VkFramebuffer> Swapchain::CreateFramebuffers(std::vector<VkImageView> img_views, VkRenderPass render_pass)
-		{
-			std::vector<VkFramebuffer> temp_framebuffers(img_views.size());
-
-			//create framebuffer for swap chain image views
-			for (size_t i = 0; i < img_views.size(); i++)
-			{
-
-				std::array<VkImageView, 2> attachments = {
-					img_views[i],
-					mDepth.imageView
-				};
-
-				//std::cout << "Size with Division and first element access: " << tes
-				VkFramebufferCreateInfo framebuffer_create_info{};
-				framebuffer_create_info.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-				framebuffer_create_info.renderPass = render_pass;
-				framebuffer_create_info.attachmentCount = static_cast<uint32_t>(attachments.size());
-				framebuffer_create_info.pAttachments = attachments.data();
-				framebuffer_create_info.width = mExtent.width;
-				framebuffer_create_info.height = mExtent.height;
-				framebuffer_create_info.layers = 1;
-
-				if (vkCreateFramebuffer(mVulkanContext->device, &framebuffer_create_info, nullptr, &temp_framebuffers[i]) != VK_SUCCESS)
-					throw std::runtime_error("Failed to create framebuffer!!!!!!");
-			}
-
-			return temp_framebuffers;
-		}
-
-		void Swapchain::UnifySwapchainImageResources(std::vector<VkImage> images, std::vector<VkImageView> image_views, std::vector<VkFramebuffer> framebuffers)
-		{
-			if (images.size() != image_views.size() || images.size() != framebuffers.size())
-				throw std::runtime_error("[Swapchain images Resources] --> {Images}{image views}{framebuffer} size not match!!!!");
-
-			mImages.resize(images.size());
-			//tracking images in flight
-			mImagesInFlight.resize(images.size());
-
+			out_swapchain_images.resize(images.size());
 			VkSemaphoreCreateInfo semaphore_create_info{};
 			semaphore_create_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
-
-			for (size_t i = 0; i < images.size(); i++)
+			for (size_t i = 0; i < out_swapchain_images.size(); i++)
 			{
 				SwapchainImage swapchain_image{};
 				swapchain_image.image = images[i];
-				swapchain_image.imageView = image_views[i];
-				swapchain_image.framebuffer = framebuffers[i];
+				swapchain_image.imageView = Resources::CreateImageView2D(vk_ctx_device, images[i], mImageFormat, VK_IMAGE_ASPECT_COLOR_BIT);
+				FLUX_VK_ASSERT_SUCCESS(vkCreateSemaphore(vk_ctx_device, &semaphore_create_info, nullptr, &swapchain_image.renderComplete),
+					"Failed to create semaphore!!!!!!");
 
-
-				if (vkCreateSemaphore(mVulkanContext->device, &semaphore_create_info, nullptr, &swapchain_image.renderComplete) != VK_SUCCESS)
-					throw std::runtime_error("Failed to create semaphore!!!!!!");
-
-				mImages[i] = swapchain_image;
+				out_swapchain_images[i] = swapchain_image;
 			}
+			return true;
+		}
+
+		bool Swapchain::UpdateSwapchainImageResources(VkDevice vk_ctx_device, std::vector<VkImage>& images, std::vector<SwapchainImage>& out_swapchain_images)
+		{
+			//if a complete resize is required
+			if (images.size() != out_swapchain_images.size())
+			{
+				//destory old image elements 
+				for (auto& image : out_swapchain_images)
+				{
+					vkDestroyImageView(vk_ctx_device, image.imageView, nullptr);
+					vkDestroySemaphore(vk_ctx_device, image.renderComplete, nullptr);
+				}
+
+				return CreateSwapchainImageResources(vk_ctx_device, images, out_swapchain_images);
+			}
+
+			for (size_t i = 0; i < out_swapchain_images.size(); i++)
+			{
+				//destroy old image view 
+				vkDestroyImageView(vk_ctx_device, mImages[i].imageView, nullptr);
+
+				out_swapchain_images[i].image = images[i];
+				out_swapchain_images[i].imageView = Resources::CreateImageView2D(vk_ctx_device, images[i], mImageFormat, VK_IMAGE_ASPECT_COLOR_BIT);
+			}
+
+			return true;
+		}
+
+		void Swapchain::CheckVkResultImageOutOfDate(const VkResult& result, VulkanContext* vk_ctx, const char* label)
+		{
+			if (result == VK_ERROR_OUT_OF_DATE_KHR)
+			{
+				FLUX_DEBUG_LOG_INFO("\033[1;31m [DRAW FRAME]\033[0m: Need to Recreate swap @", label);
+				OnResize(vk_ctx);
+				return;
+			}
+			else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR)
+				FLUX_DEBUG_LOG_INFO("\033[1;31m [DRAW FRAME]\033[0m: Failed to ", label, " Swap Chain Image");
 		}
 	} //#vulkan
 }//#Fluxon

@@ -6,6 +6,8 @@
 #include <imgui/imgui.h>
 #include <imgui_impl_vulkan.h>
 
+#include "Core/Core.h"
+
 namespace Fluxon {
 	namespace Vulkan {
 
@@ -40,6 +42,13 @@ namespace Fluxon {
 			void CreateImage(const VulkanContext* vk_ctx, uint32_t width, uint32_t height, VkImageType type, uint32_t array_layer, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage,
 				VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& image_memory, VkImageCreateFlags create_info_flags = 0);
 
+			//out image layout for utility 
+			void CreateImage2DFromFile(const VulkanContext* vk_ctx, VkCommandPool cmd_pool, const char* file_path, VkFormat format, VkImage& out_image, 
+				VkDeviceMemory& out_image_memory, uint32& out_width, uint32& out_height, VkImageLayout& out_image_layout, bool enable_anisotropy = true);
+
+			void CreateImageCubeFromFile(const VulkanContext* vk_ctx, VkCommandPool cmd_pool, std::vector<const char*> file_paths, VkFormat format, VkImage& out_image, 
+				VkDeviceMemory& out_image_memory, uint32& out_width, uint32& out_height, VkImageLayout& out_image_layout, bool enable_anisotropy = true);
+
 
 			void CopyBufferToImage(const VulkanContext* vk_ctx, VkCommandPool cmd_pool, VkBuffer buffer, VkImage image, uint32_t width, uint32_t height);
 			void CopyBufferToMultiImages(const VulkanContext* vk_ctx, VkCommandPool cmd_pool, VkBuffer buffer, VkImage image, uint32_t width, uint32_t height,
@@ -58,7 +67,8 @@ namespace Fluxon {
 			VkSampler CreateTextureSampler(const VulkanContext* vk_ctx, bool enable_anisotropy, VkFilter filter_mode = VK_FILTER_LINEAR, VkSamplerAddressMode address_mode = VK_SAMPLER_ADDRESS_MODE_REPEAT,
 				VkBorderColor border_colour = VK_BORDER_COLOR_INT_OPAQUE_BLACK, bool enable_compare_op = false, VkCompareOp compare_op = VK_COMPARE_OP_ALWAYS);
 
-			void CreateImageSamplerTexture(const VulkanContext* vk_ctx, VkCommandPool cmd_pool, const char* file_path, VkFormat format, ImageSampler& image_sampler, bool enable_anisotropy);
+			void CreateImageSamplerTexture(const VulkanContext* vk_ctx, VkCommandPool cmd_pool, const char* file_path, VkFormat format, ImageSampler& out_image_sampler, bool enable_anisotropy = true);
+			void CreateImageSamplerTexture(const VulkanContext* vk_ctx, VkCommandPool cmd_pool, const char* file_path, VkFormat format, ImageSampler& out_image_sampler, VkImageLayout& out_image_layout, bool enable_anisotropy = true);
 			void CreateImageSamplerTextureCube(const VulkanContext* vk_ctx, VkCommandPool cmd_pool, std::vector<const char*> file_paths, VkFormat format, ImageSampler& image_sampler, bool enable_anisotropy);
 
 			//Utils 

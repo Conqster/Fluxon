@@ -23,7 +23,7 @@ namespace Fluxon {
 			fb.capacity = vertex_capacity;
 			fb.count = 0;
 		}
-		void DebugLine::Init(const VulkanContext* vk_ctx, VkRenderPass& global_forward_pass, VkDescriptorSetLayout& desc_set_with_cam_as_set1)
+		void DebugLine::Init(const VulkanContext* vk_ctx, const VkRenderPass& global_forward_pass, VkDescriptorSetLayout& desc_set_with_cam_as_set1)
 		{
 			Vulkan::GraphicsPipelineSpecification dubug_gfx_pipeline_spec{};
 			dubug_gfx_pipeline_spec.vertexShaderPath = "assets/shaders/spirvs/debug_line.vert.spv";

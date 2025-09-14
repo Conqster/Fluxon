@@ -6,10 +6,11 @@
 #include <memory>
 #include <optional>
 
-#include "Core/AssertLog.h"
+#include "GraphicsAssertLog.h"
 
-#define FLUX_VK_ASSERT_SUCCESS(func, info) \
-	FLUX_DEBUG_ASSERT_CRITICAL(func == VK_SUCCESS, info)
+#include <optional>
+#include "VulkanCommandBuffer.h"
+
 
 namespace Fluxon {
 	namespace Vulkan {
@@ -43,8 +44,9 @@ namespace Fluxon {
 		struct VulkanContextSpecification
 		{
 			//vulkan app 
-			u32 applicationVersion					= VK_API_VERSION_1_0;
-			u32 apiVersion							= VK_MAKE_VERSION(1, 0, 0);
+			uint32 applicationVersion					= VK_API_VERSION_1_0;
+			uint32 apiVersion							= VK_MAKE_VERSION(1, 0, 0);
+
 
 			bool bEnableSamplerAnisotropy			= true;
 			bool bEnableSeparateDepthStencil		= true;
@@ -52,6 +54,9 @@ namespace Fluxon {
 			bool bEnableFragmentStoresAndAtomics	= false;
 
 			bool bEnableValidationLayer				= true;
+			PFN_vkDebugUtilsMessengerCallbackEXT debug_callback;
+
+			bool bCreateTransientCommandBuffer		= true;
 
 			//Not implemented yet
 			bool bImageCubeArray					= false;
@@ -71,30 +76,35 @@ namespace Fluxon {
 
 		struct VulkanContext
 		{
-			VkInstance instance							= VK_NULL_HANDLE;
-			VkPhysicalDevice physicalDevice				= VK_NULL_HANDLE;
-			VkDevice device								= VK_NULL_HANDLE;
-			VkSurfaceKHR surface						= VK_NULL_HANDLE;
+			VkInstance instance										= VK_NULL_HANDLE;
+			VkPhysicalDevice physicalDevice							= VK_NULL_HANDLE;
+			VkDevice device											= VK_NULL_HANDLE;
+			VkSurfaceKHR surface									= VK_NULL_HANDLE;
 
-			VkQueue graphicsQueue						= VK_NULL_HANDLE;
-			VkQueue computeQueue						= VK_NULL_HANDLE;
-			VkQueue presentQueue						= VK_NULL_HANDLE;
+			VkQueue graphicsQueue									= VK_NULL_HANDLE;
+			VkQueue computeQueue									= VK_NULL_HANDLE;
+			VkQueue presentQueue									= VK_NULL_HANDLE;
 
 			//TODO (Conqster): This "QueueFamilyIndices" is not set yet
 			QueueFamilyIndices queueFamilyIndices{};
 
-			VkDebugUtilsMessengerEXT debugMessager		= VK_NULL_HANDLE;
+			VkDebugUtilsMessengerEXT debugMessager					= VK_NULL_HANDLE;
 
 			std::unique_ptr<Swapchain> swapchain;
-			Platform::Window* pMainPlatformWindow		= nullptr;
+			Platform::Window* pMainPlatformWindow					= nullptr;
 
-			uint32_t frameIndex							= 0;
+			VkCommandPool transientCmdPool			= VK_NULL_HANDLE;
+			VulkanCommandBuffer transientCmdBuffer = {};
+			VkFence transientCmdFence				= VK_NULL_HANDLE;
+			
+
+			uint32_t frameIndex										= 0;
 			//quick hack 
-			double frameDT								= 0.0;
-			VkDescriptorSetLayout dummyDescSetLayout	= VK_NULL_HANDLE;
+			double frameDT											= 0.0;
+			VkDescriptorSetLayout dummyDescSetLayout				= VK_NULL_HANDLE;
 
 			//static VulkanContext CreateVulkanContext(Platform::Window* window, bool enable_validation_layers, PFN_vkDebugUtilsMessengerCallbackEXT debug_callback);
-			static VulkanContext CreateVulkanContext(Platform::Window* window, const VulkanContextSpecification& ctx_spec, PFN_vkDebugUtilsMessengerCallbackEXT debug_callback);
+			static VulkanContext CreateVulkanContext(Platform::Window* window, const VulkanContextSpecification& ctx_spec);
 			void DestroyVulkanContext(bool has_debugger);
 
 			VkPhysicalDeviceLimits GetPhysicalDeviceLimits()
@@ -120,6 +130,8 @@ namespace Fluxon {
 			void CreateVkInstance(const Platform::Window* window, const VulkanContextSpecification& ctx_spec, PFN_vkDebugUtilsMessengerCallbackEXT debug_callback);
 			void CreateSurface(const Platform::Window* window);
 			void CreateLogicalDevice(const VulkanContextSpecification& ctx_spec);
+
+			void CreateTrasientCommand();
 
 
 			void InitDebugMessenger(PFN_vkDebugUtilsMessengerCallbackEXT debug_callback);

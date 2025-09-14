@@ -72,6 +72,8 @@ namespace Fluxon {
 
 	protected:
 		MAKE_PROPERTY_SERIALISABLE(Camera)
+		//MAKE_PROPERTY_UI_TRAIT(Camera)
+
 
 		glm::vec3 mPosition = glm::vec3(-0.93f, 1.60f, 8.55f);
 
@@ -118,6 +120,7 @@ namespace Fluxon {
 		void UpdateUPRTBasisVector();
 
 		MAKE_PROPERTY_SERIALISABLE(DynamicCamera)
+		//MAKE_PROPERTY_UI_TRAIT(DynamicCamera)
 
 		// camera vector basis to maintain rotation axes
 		glm::vec3 mUp = glm::vec3(0.0f, 1.0f, 0.0f);
@@ -169,6 +172,7 @@ namespace Fluxon {
 
 	protected:
 		MAKE_PROPERTY_SERIALISABLE(EditorCamera)
+		//MAKE_PROPERTY_UI_TRAIT(EditorCamera)
 
 		float mMoveSpeed = 5.0f;
 		float mRotSpeed = 0.3f;

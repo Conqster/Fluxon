@@ -15,6 +15,8 @@
 #include "Renderer/VulkanTexture.h"
 
 
+#include "Renderer/VulkanDescriptorSet.h"
+
 
 namespace Fluxon {
 	class Camera;
@@ -39,17 +41,19 @@ namespace Fluxon {
 			VkExtent2D mVoxelImageExtent{128, 128};
 			uint32_t mVoxelImageDepth = 128;
 
-			std::array<GPUBuffer, kMaxFramesInFlight> mCameraBufferdata;
-			std::array<GPUBuffer, kMaxFramesInFlight> mVoxelParamBufferdata;
+			//std::array<GPUBuffer, kMaxFramesInFlight> mCameraBufferdata;
+			//std::array<GPUBuffer, kMaxFramesInFlight> mVoxelParamBufferdata;
 
-			std::array<VulkanTexture, kMaxFramesInFlight> mVoxelOccupancyTex;
+			//std::array<VulkanTexture, kMaxFramesInFlight> mVoxelOccupancyTex;
 
 			DynamicCamera mCamera = DynamicCamera(ECameraType::Orthographic, 0.1f, 50.0f, 6.4f);
 
 
-			VkDescriptorPool mDescriptorPool = VK_NULL_HANDLE;
-			VkDescriptorSetLayout mDescriptorSetLayout = VK_NULL_HANDLE;
-			std::array<VkDescriptorSet, kMaxFramesInFlight> mDescriptorSets;
+			//VkDescriptorPool mDescriptorPool = VK_NULL_HANDLE;
+			//VkDescriptorSetLayout mDescriptorSetLayout = VK_NULL_HANDLE;
+			//std::array<VkDescriptorSet, kMaxFramesInFlight> mDescriptorSets;
+
+			VulkanDescriptorSet mDescriptorSet;
 
 			uint32_t mFrameIndex = 0;
 
@@ -75,9 +79,9 @@ namespace Fluxon {
 
 		private:
 			void CreateGfxPipeline(const VulkanContext* vk_ctx);
-			bool CreateDescriptorSetLayouts(const VulkanContext* vk_ctx);
+			//bool CreateDescriptorSetLayouts(const VulkanContext* vk_ctx);
 
-			bool CreateGPUbuffers(const VulkanContext* vk_ctx);
+			//bool CreateGPUbuffers(const VulkanContext* vk_ctx);
 		};
 
 

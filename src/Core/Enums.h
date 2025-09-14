@@ -4,7 +4,7 @@
 namespace Fluxon {
 
 
-	enum class ERenderPassType : u8
+	enum class ERenderPassType : uint8
 	{
 		None,
 
@@ -13,34 +13,48 @@ namespace Fluxon {
 		Voxelisation
 	};
 
-	enum class ERenderBits : u16
+	enum class ERenderBits : uint16
 	{
 		None			= 0,
-		OpaqueBit		= Bit16(0),
-		TransparentBit	= Bit16(1),
-		ShadowCasterBit = Bit16(2),
-		SkyboxBit		= Bit16(3),
-		VoxelBit		= Bit16(4), 
+		Opaque		= Bit16(0),
+		Transparent	= Bit16(1),
+		ShadowCaster = Bit16(2),
+		Skybox		= Bit16(3),
+		Voxel		= Bit16(4), 
 
-		Count			= 4,
+		Count			= 5,
 	};
 	using RenderMasks = Flag<ERenderBits>;
 	ENABLE_BIT_MASK_OPERATORS(ERenderBits, true);
 
 	static std::unordered_map<ERenderBits, std::string> RenderMaskBitsLayerNamesMap =
 	{
-			{ERenderBits::OpaqueBit, "Opaque Layer"},
-			{ERenderBits::TransparentBit, "Transparent Layer"},
-			{ERenderBits::ShadowCasterBit, "Shadow Caster Layer"},
-			{ERenderBits::SkyboxBit, "Skybox Layer"},
+			{ERenderBits::Opaque, "Opaque Layer"},
+			{ERenderBits::Transparent, "Transparent Layer"},
+			{ERenderBits::ShadowCaster, "Shadow Caster Layer"},
+			{ERenderBits::Skybox, "Skybox Layer"},
+			{ERenderBits::Voxel, "Voxel Layer"},
 	};
 
 	inline constexpr std::array<const char*, static_cast<size_t>(ERenderBits::Count)> RenderMaskBitsLayerNames()
 	{
-		return { "Opaque Layer", "Transparent Layer", "ShadowCaster Layer", "Skybox Layer" };
+		return { "Opaque Layer", "Transparent Layer", "ShadowCaster Layer", "Skybox Layer", "Voxel Layer"};
 	}
 
-	enum class ETextureType : u16
+	inline std::vector<const char*> RenderMaskBitsLayerNamesVector()
+	{
+		std::vector<const char*> temp = { 
+			"Opaque Layer", 
+			"Transparent Layer", 
+			"ShadowCaster Layer", 
+			"Skybox Layer", 
+			"Voxel Layer" 
+		};
+
+		return temp;
+	}
+
+	enum class ETextureType : uint16
 	{
 		Texture2D,
 		Texture2DArray,
@@ -48,7 +62,7 @@ namespace Fluxon {
 		TextureCube,
 	};
 
-	enum class ERenderTargetBits : u32
+	enum class ERenderTargetBits : uint32
 	{
 		None		= 0,
 		Write		= Bit32(0),
@@ -63,7 +77,7 @@ namespace Fluxon {
 	ENABLE_BIT_MASK_OPERATORS(ERenderTargetBits, true);
 
 
-	enum class ETextureUsageBits : u16
+	enum class ETextureUsageBits : uint16
 	{
 		None				= 0,
 		DepthAttachment		= Bit16(0),
@@ -79,7 +93,7 @@ namespace Fluxon {
 
 	//could have this as a bit which defines what a pbr material
 	//has material texture to.
-	enum class EPBRTextureMapType : u8
+	enum class EPBRTextureMapType : uint8
 	{
 		Albedo,
 		Normal,
@@ -89,12 +103,12 @@ namespace Fluxon {
 	};
 
 
-	enum class EMeshType : u8
+	enum class EMeshType : uint8
 	{
 		Static
 	};
 
-	enum class EPrimitiveMeshType : u8
+	enum class EPrimitiveMeshType : uint8
 	{
 		None,
 		ModelMesh,			//Loaded from external file
@@ -105,7 +119,7 @@ namespace Fluxon {
 
 
 
-	enum class ECameraType : u8
+	enum class ECameraType : uint8
 	{
 		Perspective,
 		Orthographic
@@ -117,5 +131,38 @@ namespace Fluxon {
 		return { "Perspective", "Orthographic" };
 	}
 
+
+
+	enum class ESandboxTheme : uint8
+	{
+		BlueAccent,
+		TealAccent
+	};
+
+
+	enum EDescriptorSetErrorBit : uint8
+	{
+		None				 = 0,
+		InvalidBinding		 = Bit8(0),
+		BindingOverlap		 = Bit8(1),
+		NoData				 = Bit8(2),
+		TypeDoesNotMatchData = Bit8(3),
+		TypeDoesNotExist	 = Bit8(4),
+	};
+
+	using DescriptorSetErrorFlag = Flag<EDescriptorSetErrorBit>;
+	ENABLE_BIT_MASK_OPERATORS(EDescriptorSetErrorBit, true);
+
+
+
+
+	enum class EShaderStageBit : uint8
+	{
+		Vertex		= Bit8(0),
+		Fragment	= Bit8(1),
+		Compute		= Bit8(2)
+	};
+	using ShaderStageFlag = Flag<EShaderStageBit>;
+	ENABLE_BIT_MASK_OPERATORS(EShaderStageBit, true);
 
 } //namespace Fluxon

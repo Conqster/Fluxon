@@ -45,7 +45,7 @@ namespace Fluxon {
 	struct SceneRenderPrimitive
 	{
 		//ERenderMask maskLayer = ERenderMask::RM_Opaque | ERenderMask::RM_ShadowCaster;
-		RenderMasks renderMask = ERenderBits::OpaqueBit | ERenderBits::ShadowCasterBit;
+		RenderMasks renderMask = ERenderBits::Opaque | ERenderBits::ShadowCaster;
 		uint32_t pipelineIdx = 0;
 		uint32_t descSetSpecificationIdx = 0;
 		//SceneNode* node = nullptr;
@@ -58,10 +58,15 @@ namespace Fluxon {
 		std::vector<PushConstantSpecification> pushConstantSpecs;
 	};
 
+
+	namespace Vulkan {
+		class RenderPass;
+	}
 	struct RenderPassBucket
 	{
 		ERenderPassType type = ERenderPassType::None;
-		Vulkan::IRenderPass* pass = nullptr;
+		//Vulkan::IRenderPass* pass = nullptr;
+		Vulkan::RenderPass* pass = nullptr;
 		std::vector<Vulkan::DescriptorSetSpecification> descSetSpecifications; //<-- min 1
 
 		struct PassPipeline
@@ -169,7 +174,7 @@ namespace Fluxon {
 		std::vector<SceneNode*> sceneNodes;
 
 		GPUStructures::DirectionalLight* directionalLight			= nullptr;
-		GPUStructures::Skybox* skybox								= nullptr;
+		GPUStructures::SkyboxProperties* skybox								= nullptr;
 
 		EditorCamera* camera										= nullptr;
 
@@ -177,12 +182,25 @@ namespace Fluxon {
 		Vulkan::RenderTarget* shadowPassDepthRT						= nullptr;
 		Vulkan::RenderTarget* voxelDepthRT							= nullptr;
 
+		Vulkan::RenderTarget* sceneRenderOutput = nullptr;
+
 
 		LightShadowData lightShadowData{};
 
 		GPUStructures::EmitterUBO* particleEmitter					= nullptr;
 
 		double currentFrameDT = 0.0f;
+
+		//just for testing 
+		float viewportWidth;
+		float viewportHeight;
+
+		glm::vec4 experimentLightMove = glm::vec4(0.0f);
+
+		//void* pScene												= nullptr;
 	};
+
+	//scene
+		//scene level
 
 }

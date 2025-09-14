@@ -6,36 +6,36 @@
 
 namespace Fluxon {
 
-	inline u32 PackRGBA(float r, float g, float b, float a) {
-		u8 _r = static_cast<u8>(r * 255.0f);
-		u8 _g = static_cast<u8>(g * 255.0f);
-		u8 _b = static_cast<u8>(b * 255.0f);
-		u8 _a = static_cast<u8>(a * 255.0f);
-		u32 result = (_a << 24) | (_b << 16) | (_g << 8) | _r;
+	inline uint32 PackRGBA(float r, float g, float b, float a) {
+		uint8 _r = static_cast<uint8>(r * 255.0f);
+		uint8 _g = static_cast<uint8>(g * 255.0f);
+		uint8 _b = static_cast<uint8>(b * 255.0f);
+		uint8 _a = static_cast<uint8>(a * 255.0f);
+		uint32 result = (_a << 24) | (_b << 16) | (_g << 8) | _r;
 		return result;
 	}
 
-	inline u32 PackRGBA(float r, float g, float b) {
+	inline uint32 PackRGBA(float r, float g, float b) {
 		return PackRGBA(r, g, b, 1.0f);
 	}
 
-	inline u32 PackRGBA(glm::vec4 c) {
+	inline uint32 PackRGBA(glm::vec4 c) {
 		return PackRGBA(c.r, c.g, c.b, c.a);
 	}
 
-	inline u32 PackRGBA(glm::vec3 c, float a = 1.0f) {
+	inline uint32 PackRGBA(glm::vec3 c, float a = 1.0f) {
 		return PackRGBA(c.r, c.g, c.b, a);
 	}
 
-	inline u32 PackRGBA(float c) {
+	inline uint32 PackRGBA(float c) {
 		return PackRGBA(c, c, c, c);
 	}
 
-	inline glm::vec3 RGBAAsVec3(u32 rgba) {
+	inline glm::vec3 RGBAAsVec3(uint32 rgba) {
 		//colour channels 
-		u8 r = (rgba & 0x000000FF);
-		u8 g = (rgba & 0x0000FF00) >> 8;
-		u8 b = (rgba & 0x00FF0000) >> 16;
+		uint8 r = (rgba & 0x000000FF);
+		uint8 g = (rgba & 0x0000FF00) >> 8;
+		uint8 b = (rgba & 0x00FF0000) >> 16;
 		glm::vec3 col(r, g, b);
 		return col / 255.0f;
 	}
@@ -43,13 +43,13 @@ namespace Fluxon {
 	struct NODISCARD Colour32
 	{
 		union {
-			u32 value;
+			uint32 value;
 			struct { 
 				//depending on development r might be promoted to most importance
-				u8 r; //Little endiann least significat byte
-				u8 g;
-				u8 b;
-				u8 a; //Most significant byte 
+				uint8 r; //Little endiann least significat byte
+				uint8 g;
+				uint8 b;
+				uint8 a; //Most significant byte 
 			};
 		};
 
@@ -69,7 +69,7 @@ namespace Fluxon {
 
 		//implicit conversions
 		// to packed uint32_t
-		NODISCARD operator u32() const { return value; }
+		NODISCARD operator uint8() const { return value; }
 		NODISCARD operator glm::vec3() const { return glm::vec3(r, g, b) / 255.0f; }
 		NODISCARD operator glm::vec4() const { return glm::vec4(r, g, b, a) / 255.0f; }
 

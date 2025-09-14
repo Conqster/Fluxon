@@ -41,6 +41,9 @@ namespace Fluxon {
 			uint32_t arrayLayers					= 1; //if using array as depth
 			VkExtent2D extent{};
 
+			VkImageUsageFlags explicitUsage = {};
+			VkImageAspectFlagBits imageAspect = {};
+
 			RenderTargetFlag targetMask = ERenderTargetBits::Write | ERenderTargetBits::Sample;
 
 
@@ -48,6 +51,9 @@ namespace Fluxon {
 
 
 			static bool CreateRenderTarget(Fluxon::Vulkan::VulkanContext* vk_ctx, VkCommandPool cmd_pool, RenderTarget& render_target, RenderTargetSpec specification);
+
+			bool OnResize(VulkanContext* vk_ctx, VkCommandPool cmd_pool, uint32 width, uint32 height);
+
 			
 			static bool MakeRenderTarget(Fluxon::Vulkan::VulkanContext* vk_ctx, RenderTarget& rt, RenderTargetFlag target_mask);
 			
@@ -63,14 +69,20 @@ namespace Fluxon {
 			VkFramebuffer bufferHandle;
 			VkExtent2D extent{};
 
-			static bool Create(Fluxon::Vulkan::VulkanContext* ctx, VkRenderPass render_pass, Framebuffer& fbo, 
+			static bool Create(const Fluxon::Vulkan::VulkanContext* ctx, VkRenderPass render_pass, Framebuffer& fbo, 
 				VkExtent2D _extext, const std::vector<VkImageView>& view_attachments, uint32_t layers = 1);
 
 			bool CreateDummy(Fluxon::Vulkan::VulkanContext* ctx, VkRenderPass render_pass,
 										VkExtent2D _extext, uint32_t layers = 1);
 
-			static void DestroyFramebuffer(VkDevice device, Framebuffer fb) {
-				vkDestroyFramebuffer(device, fb.bufferHandle, nullptr);
+
+			bool OnResize(VulkanContext* vk_ctx, VkRenderPass render_pass, const std::vector<VkImageView>& view_attachments,
+				uint32 width, uint32 height, uint32 layer = 1);
+
+			static void DestroyFramebuffer(VkDevice device, Framebuffer& fb) {
+				
+				if(fb.bufferHandle != VK_NULL_HANDLE)
+					vkDestroyFramebuffer(device, fb.bufferHandle, nullptr);
 			}
 		};
 
