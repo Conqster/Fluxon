@@ -10,7 +10,7 @@ rasterise scene geometry's SDF into a cube texture, which was designed as world 
 The particle-collision integration that data was meant for was never wired up. The pause is deliberate; this project may be resumed
 for further experimentation.
 
-<img src = "Docs/Fluxon_Editor.png"/>
+<img src = "Fluxon_Editor.png"/>
 
 More [samples](#samples)
 
