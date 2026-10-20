@@ -2,7 +2,7 @@
 An experimental C++ Vulkan project exploring real-time rendering, learning Vulkan, and GPU compute. Development is paused while
 I focus on my primary project, the [Vortrix Physics Engine](https://github.com/Conqster/VortrixPhysics).
 
-**Status: Imcomplete/Paused**
+**Status: Incomplete/Paused**
 
 ## Project Status
 Development ran from July 2025 to September 2025 and ended at the signed distance field (SDF) voxelisation stage: the engine can
